@@ -17,20 +17,15 @@
 </head>
 
 <script>
-    var cardList = { "headerContent": "Header Content", "bodyContent": "body content", "footerContent": "footer Content" }
-    var cardList2 = { "headerContent": "The content we want" }
-    var cardList3 = [
-                        { "headerContent": "1", "bodyContent": "2", "footerContent": "3" },
-                        { "headerContent": "4", "bodyContent": "5", "footerContent": "6" },
-                        { "headerContent": "7", "bodyContent": "8", "footerContent": "9" }
-                    ]
+    cardList = [];
+    for(var i = 0; i < 13; i+=3){
+        cardList.push({ "headerContent": ""+i, "bodyContent": ""+(i+1), "footerContent": ""+(i+2) })
+    }
 </script>
 
 <body>
     <h3>Enter your message</h3>
     <react-card data-template=cardList></react-card>
-    <react-card data-template=cardList2></react-card>
-    <react-card data-template=cardList3></react-card>
     <react-banner></react-banner>
 </body>
 <script>
