@@ -1,12 +1,7 @@
-var fs = require('fs');
-var uglify = require("uglify-js");
 
-dirname = "www/compiled"
-
-var compiledFile = `
 function fillTemplate(template, data)
 {
-		const regex = /\{\{\\w+\}\}/gm;
+		const regex = /{{\w+}}/gm;
 		const str = template;
 		let m;
 		while ((m = regex.exec(str)) !== null) {
@@ -50,28 +45,28 @@ function htmlToElement(html) {
     return template.content.firstChild;
 }
 function createTracker(context,data){
-    dataWithWatcher = \`var x = {listener: undefined,
+    dataWithWatcher = `var x = {listener: undefined,
             set (){
                 this.internal = val;
                 this.listener(val);
             },
             registerListener: function(listener) {
             this.listener = listener;
-        },\`
+        },`
     var length = Object.keys(data).length
     var count = 0
     for (var [key, value] of Object.entries(data)) {
         if (typeof value === "string") {
-            value = "\\"" + value + "\\""
+            value = "\"" + value + "\""
         }
-        dataWithWatcher += key + \`Internal : \` + value + \`,
-            set \`+ key + \`(val) {
-            this.\`+ key + \`Internal = val;
+        dataWithWatcher += key + `Internal : ` + value + `,
+            set `+ key + `(val) {
+            this.`+ key + `Internal = val;
             this.listener(val);
             },
-            get \`+ key + \`() {
-            return this.\`+ key + \`Internal;
-            }\`
+            get `+ key + `() {
+            return this.`+ key + `Internal;
+            }`
         if (count < length) { dataWithWatcher += "," }
         count++;
     }
@@ -81,9 +76,8 @@ function createTracker(context,data){
         context.updateTemplate(this)
     })
     return x;
-}`
-var component = `
-class CLASSNAME_REPLACE extends HTMLElement {
+}
+class template_0 extends HTMLElement {
     constructor() {
         super();
         // element created
@@ -92,8 +86,8 @@ class CLASSNAME_REPLACE extends HTMLElement {
         var hasTemplate = this.hasAttribute("data-template")
         var isStatic = false
         var xmlHttp = new XMLHttpRequest();
-		xmlHttp.open( "GET", "FILENAME_REPLACE", false ); // false for synchronous request
-        xmlHttp.send(null);
+		xmlHttp.open( "GET", "/template/react-banner.html", false ); // false for synchronous request
+        xmlHttp.send();
         
         var html = xmlHttp.responseText
         if (hasTemplate) {
@@ -141,7 +135,7 @@ class CLASSNAME_REPLACE extends HTMLElement {
         var res = htmlToElement(html)
         //this.shadowRoot.append(res);
         this.append(res);
-		CUSTOM_ONLOAD
+		
     }
 
     disconnectedCallback() {
@@ -163,59 +157,89 @@ class CLASSNAME_REPLACE extends HTMLElement {
     }
 
     // there can be other element methods and properties
-}\r`
-function onError(err) {
-	console.log(err)
 }
-templateFolder = "www/template"
-var globalStyle = ""
-fs.readdir(templateFolder, function (err, filenames) {
+customElements.define("react-banner", template_0);
+class template_1 extends HTMLElement {
+    constructor() {
+        super();
+        // element created
+    }
+    connectedCallback() {
+        var hasTemplate = this.hasAttribute("data-template")
+        var isStatic = false
+        var xmlHttp = new XMLHttpRequest();
+		xmlHttp.open( "GET", "/template/react-card.html", false ); // false for synchronous request
+        xmlHttp.send();
+        
+        var html = xmlHttp.responseText
+        if (hasTemplate) {
+            var dataName = this.getAttribute("data-template");
+            try{
+                var data = JSON.parse(dataName)
+                isStatic = true
+            }catch{
+                var templateData = getKeys(html)
+                try{
+                    var data = eval(dataName)
+                    if(Array.isArray(data) == false)
+                    {
+                        data = Object.assign(templateData, data)
+                    }
+                }catch{
+                    eval("window."+dataName +"= templateData")
+                    var data = eval(dataName)
+                }
+                
+            }
+        }
+        if (hasTemplate) {
+            if (Array.isArray(data)) {
+                for (var i = 0; i < data.length; i++) {
+                    var sibling = document.createElement(this.tagName)
+                    sibling.setAttribute("data-template",dataName+"["+(data.length-i-1)+"]")
+                    this.insertAdjacentElement("afterend", sibling)
+                }
+                this.remove()
+                return;
+            }
+            if(isStatic === false){
+                eval(dataName+" = createTracker(this,"+dataName+")")
 
-	if (err !== null) {
-		onError(err);
-		return;
-	}
-	var count = 0;
-	filenames.forEach(function (filename) {
-		console.log("compiling ",filename)
-		let componentText = component.replace("FILENAME_REPLACE", "/template/" + filename).replace("CLASSNAME_REPLACE", "template_" + count);
-		componentText += 'customElements.define("' + filename.replace(".html", "") + '", template_' + count + ');';
-		var content = fs.readFileSync(templateFolder+"/" + filename, 'utf8');
-		var scriptContent = ""
-		if (content.indexOf("<script>") > -1) {
-			scriptContent = content.split("<script>")[1].split("</script>")[0]
-		}
-        var styleContent = ""
-        if (content.indexOf("<style>") > -1) {
-			globalStyle += content.split("<style>")[1].split("</style>")[0]
-		}
-		componentText = componentText.replace("CUSTOM_ONLOAD", scriptContent)
-		compiledFile += componentText;
-		console.log("linting ",filename)
-		console.log("compiled ",filename)
-		count++;
-	});
-	console.log("spitting out the compiled JS", 'compiled.js')
-	fs.writeFile(dirname + '/compiled.js', compiledFile, err => {
-		if (err) {
-			console.error(err);
-		}
-	});
-	var uglified = uglify.minify([compiledFile]);
+            }
+            html = fillTemplate(html, data)
+            this.updateTemplate = function(data){
+            var html = fillTemplate(xmlHttp.responseText,data)
+            res = htmlToElement(html)
+            this.innerHTML = res.outerHTML
+            //this.shadowRoot.innerHTML = html
+            }
+        }
+        var res = htmlToElement(html)
+        //this.shadowRoot.append(res);
+        this.append(res);
+		
+    console.log("Script loading works")
 
-	fs.writeFile(dirname + '/compiled.min.js', uglified.code, function (err) {
-		if (err) {
-			console.log(err);
-		} else {
-			console.log("Barfing out the minified JS ", 'compiled.min.js');
-		}
-	});
-    fs.writeFile(dirname + '/style.css', globalStyle, function (err) {
-		if (err) {
-			console.log(err);
-		} else {
-			console.log("Spitting out the stylesheet", 'style.css');
-		}
-	});
-});
-var customComponent = ''
+    }
+
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
+
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
+
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
+
+    // there can be other element methods and properties
+}
+customElements.define("react-card", template_1);

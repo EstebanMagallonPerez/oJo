@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTPS Server</title>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" type="text/css" href="compiled/style.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+    <script src="/compiled/compiled.js"></script>
+</head>
+
+<script>
+    var cardList = { "headerContent": "Header Content", "bodyContent": "body content", "footerContent": "footer Content" }
+    var cardList2 = { "headerContent": "The content we want" }
+    var cardList3 = [
+                        { "headerContent": "1", "bodyContent": "2", "footerContent": "3" },
+                        { "headerContent": "4", "bodyContent": "5", "footerContent": "6" },
+                        { "headerContent": "7", "bodyContent": "8", "footerContent": "9" }
+                    ]
+</script>
+
+<body>
+    <h3>Enter your message</h3>
+    <react-card data-template=cardList></react-card>
+    <react-card data-template=cardList2></react-card>
+    <react-card data-template=cardList3></react-card>
+    <react-card data-template=uninitCard></react-card>
+
+    <react-card data-template='{"headerContent": "Set", "bodyContent": "from", "footerContent": "local" }'></react-card>
+    <react-banner></react-banner>
+</body>
+<script>
+    function setValue(curValue) {
+        cardList2.headerContent = "The content we want " + curValue
+        setTimeout(() => {
+            setValue(curValue + 1);
+        }, 1000)
+    }
+    window.document.onload = function (e) {
+        setValue(0);
+    }
+    setValue(0);
+</script>
+
+</html>
