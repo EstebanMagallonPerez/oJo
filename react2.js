@@ -7,7 +7,7 @@ const fs = require("fs");
 app.get(/.*/, function (req, res) {
     path = req.url
     if(path == "/"){path = "/index.html"}
-    res.sendFile(__dirname + path);
+    res.sendFile(__dirname +"/www/"+ path);
 });
 
 const options = {
@@ -19,5 +19,5 @@ cert: fs.readFileSync("server.cert"),
 // options and app object
 https.createServer(options, app)
 .listen(3000, function (req, res) {
-    console.log("Server started at port 3000");
+    console.log("Server started at port 3000!");
 });
