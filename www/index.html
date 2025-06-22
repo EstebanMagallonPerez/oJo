@@ -2,44 +2,56 @@
 <html lang="en">
 
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTTPS Server</title>
     <!-- Latest compiled and minified CSS -->
-    <link rel="stylesheet" type="text/css" href="compiled/style.css"/>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="compiled/style.css" />
     <script src="/compiled/compiled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
+        crossorigin="anonymous"></script>
+
 </head>
 
 <script>
     cardList = [];
-    for(var i = 0; i < 13; i+=3){
-        cardList.push({ "headerContent": ""+i, "bodyContent": ""+(i+1), "footerContent": ""+(i+2) })
+    for (var i = 0; i < 3; i += 1) {
+        cardList.push({ "headerContent": "" + i, "bodyContent": "" + (i + 1), "footerContent": "" + (i + 2) })
     }
+    var ccontents = { "content": "some more stuff" }
+    var contents = { "content": "some stuff", "child": ccontents }
+    var inherited = { "childTemplate": contents }
+    carouselList = [];
+    for (var i = 0; i < 3; i += 1) {
+        carouselList.push({ "isActive": i == 0 ? "active" : "", "captionTitle": "Title " + i, "captionText": "Here is some generic text " + i })
+    }
+    var test = carouselList[0]
+    var test2 = carouselList[1]
+    var test3 = carouselList[2]
+
+    cData = { "children": carouselList }
+
 </script>
 
 <body>
-    <h3>Enter your message</h3>
-    <react-card data-template=cardList></react-card>
-    <react-card data-template=cardList2></react-card>
-    <react-card data-template=cardList3></react-card>
-    <react-card data-template=uninitCard></react-card>
-
-    <react-card data-template='{"headerContent": "Set", "bodyContent": "from", "footerContent": "local" }'></react-card>
-    <react-banner></react-banner>
+    <carousel-container data-template={}>
+        <carousel-item data-template=test>
+            <carousel-caption data-template=test>
+            </carousel-caption>
+        </carousel-item>
+        <carousel-item data-template=test2>
+            <carousel-caption data-template=test2>
+            </carousel-caption>
+        </carousel-item>
+        <carousel-item data-template=test3>
+            <carousel-caption data-template=test3>
+            </carousel-caption>
+        </carousel-item>
+    </carousel-container>
 </body>
-<script>
-    function setValue(curValue) {
-        cardList2.headerContent = "The content we want " + curValue
-        setTimeout(() => {
-            setValue(curValue + 1);
-        }, 1000)
-    }
-    window.document.onload = function (e) {
-        setValue(0);
-    }
-    setValue(0);
-</script>
 
 </html>

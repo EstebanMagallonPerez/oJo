@@ -1,0 +1,30 @@
+<div id="carouselExampleCaptions" class="carousel slide">
+  <div class="carousel-indicators">
+  </div>
+  <div class="carousel-inner">
+    <slot></slot>
+  </div>
+  <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide="prev">
+    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Previous</span>
+  </button>
+  <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide="next">
+    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Next</span>
+  </button>
+</div>
+<script>
+  let id = this.children[0].getAttribute("id")
+  let carouselItems = document.querySelectorAll("carousel-item");
+  let cArray = [...carouselItems]
+  let output = ""
+  let count = 0;
+  cArray.forEach(element => {
+    output += '<button type="button" data-bs-target="'
+      + id + '"' + (count == 0 ? 'class="active"' : "")
+      + ' data-bs-slide-to="' + count + '" aria-current="true" aria-label="Slide ' + (count + 1) + '"></button>'
+    count += 1
+  });
+  let one = document.querySelectorAll(".carousel-indicators");
+  one[0].innerHTML = output;
+</script>
