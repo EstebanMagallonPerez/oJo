@@ -1,3 +1,4 @@
+
 const renderEvent = new Event("render");
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -64,10 +65,12 @@ function ccHandler(fileName, callback) {
     });
   }
   this.append(res);
-  callback.bind(this)();
+  callback.bind(this)()
+
+
 }
 function fillTemplate(template, data) {
-  const regex = /{{\w+}}/gm;
+	const regex = /{{\w+}}/gm;
   const str = template;
   let m;
   while ((m = regex.exec(str)) !== null) {
@@ -114,6 +117,7 @@ function htmlToElement(html) {
   return template.content.firstChild;
 }
 
+
 function createTracker(context, data) {
   if (data.listener != undefined) {
     return data;
@@ -129,37 +133,23 @@ function createTracker(context, data) {
   var length = Object.keys(data).length;
   var count = 0;
   for (var [key, value] of Object.entries(data)) {
-    if (typeof value === "string") {
-      value = '"' + value + '"';
-    }
-    if (typeof value === "object") {
-      value = JSON.stringify(value);
-    }
-    dataWithWatcher +=
-      key +
-      `Internal : ` +
-      value +
-      `,
-            set ` +
-      key +
-      `(val) {
-            this.` +
-      key +
-      `Internal = val;
+        if (typeof value === "string") {
+            value = "\"" + value + "\""
+        }
+        if (typeof value === "object") {
+            value = JSON.stringify(value)
+        }
+        dataWithWatcher += key + `Internal : ` + value + `,
+            set `+ key + `(val) {
+            this.`+ key + `Internal = val;
             this.listener(val);
             },
-            get ` +
-      key +
-      `() {
-            return this.` +
-      key +
-      `Internal;
-            }`;
-    if (count < length) {
-      dataWithWatcher += ",";
-    }
-    count++;
-  }
+            get `+ key + `() {
+            return this.`+ key + `Internal;
+            }`
+        if (count < length) { dataWithWatcher += "," }
+        count++;
+    } 
   dataWithWatcher += "}";
 
   eval(dataWithWatcher);
@@ -169,285 +159,228 @@ function createTracker(context, data) {
   return x;
 }
 class template_0 extends HTMLElement {
-  constructor() {
-    super();
-    // element created
+    constructor() {
+        super();
+        // element created
+    }
+  customOnload(){
+    
   }
-  customOnload() {}
 
   connectedCallback() {
-    document.addEventListener(
-      "render",
-      function () {
-        ccHandler.bind(
-          this,
-          "/template/bs-carousel-caption.html",
-          this.customOnload
-        )();
-      }.bind(this, self),
-      { once: true }
-    );
+    document.addEventListener("render", function () {
+      ccHandler.bind(this,"/template/bs-carousel-caption.html",this.customOnload)()
+    }.bind(this,self), { once: true });
   }
 
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
 
-  static get observedAttributes() {
-    return [
-      /* array of attribute names to monitor for changes */
-    ];
-  }
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // called when one of attributes listed above is modified
-  }
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
 
-  adoptedCallback() {
-    // called when the element is moved to a new document
-    // (happens in document.adoptNode, very rarely used)
-  }
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
 
-  // there can be other element methods and properties
-}
-customElements.define("bs-carousel-caption", template_0);
+    // there can be other element methods and properties
+}customElements.define("bs-carousel-caption", template_0);
 class template_1 extends HTMLElement {
-  constructor() {
-    super();
-    // element created
-  }
-  customOnload() {
-    console.log("in the onload ");
-    let id = this.children[0].getAttribute("id");
-    let carouselItems = document.querySelectorAll("bs-carousel-item");
-    let cArray = [...carouselItems];
-    let output = "";
-    let count = 0;
-    cArray.forEach((element) => {
-      console.log("in the foreach ");
-      output +=
-        '<button type="button" data-bs-target="' +
-        id +
-        '"' +
-        (count == 0 ? 'class="active"' : "") +
-        ' data-bs-slide-to="' +
-        count +
-        '" aria-current="true" aria-label="Slide ' +
-        (count + 1) +
-        '"></button>';
-      count += 1;
-    });
-    let one = document.querySelectorAll(".carousel-indicators");
-    one[0].innerHTML = output;
+    constructor() {
+        super();
+        // element created
+    }
+  customOnload(){
+    
+  console.log("in the onload ")
+  let id = this.children[0].getAttribute("id")
+  let carouselItems = document.querySelectorAll("bs-carousel-item");
+  let cArray = [...carouselItems]
+  let output = ""
+  let count = 0;
+  cArray.forEach(element => {
+    console.log("in the foreach ")
+    output += '<button type="button" data-bs-target="'
+      + id + '"' + (count == 0 ? 'class="active"' : "")
+      + ' data-bs-slide-to="' + count + '" aria-current="true" aria-label="Slide ' + (count + 1) + '"></button>'
+    count += 1
+  });
+  let one = document.querySelectorAll(".carousel-indicators");
+  one[0].innerHTML = output;
+
   }
 
   connectedCallback() {
-    document.addEventListener(
-      "render",
-      function () {
-        ccHandler.bind(
-          this,
-          "/template/bs-carousel-container.html",
-          this.customOnload
-        )();
-      }.bind(this, self),
-      { once: true }
-    );
+    document.addEventListener("render", function () {
+      ccHandler.bind(this,"/template/bs-carousel-container.html",this.customOnload)()
+    }.bind(this,self), { once: true });
   }
 
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
 
-  static get observedAttributes() {
-    return [
-      /* array of attribute names to monitor for changes */
-    ];
-  }
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // called when one of attributes listed above is modified
-  }
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
 
-  adoptedCallback() {
-    // called when the element is moved to a new document
-    // (happens in document.adoptNode, very rarely used)
-  }
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
 
-  // there can be other element methods and properties
-}
-customElements.define("bs-carousel-container", template_1);
+    // there can be other element methods and properties
+}customElements.define("bs-carousel-container", template_1);
 class template_2 extends HTMLElement {
-  constructor() {
-    super();
-    // element created
+    constructor() {
+        super();
+        // element created
+    }
+  customOnload(){
+    
   }
-  customOnload() {}
 
   connectedCallback() {
-    document.addEventListener(
-      "render",
-      function () {
-        ccHandler.bind(
-          this,
-          "/template/bs-carousel-item.html",
-          this.customOnload
-        )();
-      }.bind(this, self),
-      { once: true }
-    );
+    document.addEventListener("render", function () {
+      ccHandler.bind(this,"/template/bs-carousel-item.html",this.customOnload)()
+    }.bind(this,self), { once: true });
   }
 
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
 
-  static get observedAttributes() {
-    return [
-      /* array of attribute names to monitor for changes */
-    ];
-  }
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // called when one of attributes listed above is modified
-  }
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
 
-  adoptedCallback() {
-    // called when the element is moved to a new document
-    // (happens in document.adoptNode, very rarely used)
-  }
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
 
-  // there can be other element methods and properties
-}
-customElements.define("bs-carousel-item", template_2);
+    // there can be other element methods and properties
+}customElements.define("bs-carousel-item", template_2);
 class template_3 extends HTMLElement {
-  constructor() {
-    super();
-    // element created
+    constructor() {
+        super();
+        // element created
+    }
+  customOnload(){
+    
   }
-  customOnload() {}
 
   connectedCallback() {
-    document.addEventListener(
-      "render",
-      function () {
-        ccHandler.bind(
-          this,
-          "/template/bs-container.html",
-          this.customOnload
-        )();
-      }.bind(this, self),
-      { once: true }
-    );
+    document.addEventListener("render", function () {
+      ccHandler.bind(this,"/template/bs-container.html",this.customOnload)()
+    }.bind(this,self), { once: true });
   }
 
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
 
-  static get observedAttributes() {
-    return [
-      /* array of attribute names to monitor for changes */
-    ];
-  }
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // called when one of attributes listed above is modified
-  }
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
 
-  adoptedCallback() {
-    // called when the element is moved to a new document
-    // (happens in document.adoptNode, very rarely used)
-  }
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
 
-  // there can be other element methods and properties
-}
-customElements.define("bs-container", template_3);
+    // there can be other element methods and properties
+}customElements.define("bs-container", template_3);
 class template_4 extends HTMLElement {
-  constructor() {
-    super();
-    // element created
+    constructor() {
+        super();
+        // element created
+    }
+  customOnload(){
+    
   }
-  customOnload() {}
 
   connectedCallback() {
-    document.addEventListener(
-      "render",
-      function () {
-        ccHandler.bind(
-          this,
-          "/template/bs-navbar-item.html",
-          this.customOnload
-        )();
-      }.bind(this, self),
-      { once: true }
-    );
+    document.addEventListener("render", function () {
+      ccHandler.bind(this,"/template/bs-navbar-item.html",this.customOnload)()
+    }.bind(this,self), { once: true });
   }
 
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
 
-  static get observedAttributes() {
-    return [
-      /* array of attribute names to monitor for changes */
-    ];
-  }
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // called when one of attributes listed above is modified
-  }
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
 
-  adoptedCallback() {
-    // called when the element is moved to a new document
-    // (happens in document.adoptNode, very rarely used)
-  }
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
 
-  // there can be other element methods and properties
-}
-customElements.define("bs-navbar-item", template_4);
+    // there can be other element methods and properties
+}customElements.define("bs-navbar-item", template_4);
 class template_5 extends HTMLElement {
-  constructor() {
-    super();
-    // element created
+    constructor() {
+        super();
+        // element created
+    }
+  customOnload(){
+    
   }
-  customOnload() {}
 
   connectedCallback() {
-    document.addEventListener(
-      "render",
-      function () {
-        ccHandler.bind(this, "/template/bs-navbar.html", this.customOnload)();
-      }.bind(this, self),
-      { once: true }
-    );
+    document.addEventListener("render", function () {
+      ccHandler.bind(this,"/template/bs-navbar.html",this.customOnload)()
+    }.bind(this,self), { once: true });
   }
 
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+    disconnectedCallback() {
+        // browser calls this method when the element is removed from the document
+        // (can be called many times if an element is repeatedly added/removed)
+    }
 
-  static get observedAttributes() {
-    return [
-      /* array of attribute names to monitor for changes */
-    ];
-  }
+    static get observedAttributes() {
+        return [/* array of attribute names to monitor for changes */];
+    }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // called when one of attributes listed above is modified
-  }
+    attributeChangedCallback(name, oldValue, newValue) {
+        // called when one of attributes listed above is modified
+    }
 
-  adoptedCallback() {
-    // called when the element is moved to a new document
-    // (happens in document.adoptNode, very rarely used)
-  }
+    adoptedCallback() {
+        // called when the element is moved to a new document
+        // (happens in document.adoptNode, very rarely used)
+    }
 
-  // there can be other element methods and properties
-}
-customElements.define("bs-navbar", template_5);
+    // there can be other element methods and properties
+}customElements.define("bs-navbar", template_5);
