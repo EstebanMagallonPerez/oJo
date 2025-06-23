@@ -14,12 +14,14 @@
   </button>
 </div>
 <script>
+  console.log("in the onload ")
   let id = this.children[0].getAttribute("id")
-  let carouselItems = document.querySelectorAll("carousel-item");
+  let carouselItems = document.querySelectorAll("bs-carousel-item");
   let cArray = [...carouselItems]
   let output = ""
   let count = 0;
   cArray.forEach(element => {
+    console.log("in the foreach ")
     output += '<button type="button" data-bs-target="'
       + id + '"' + (count == 0 ? 'class="active"' : "")
       + ' data-bs-slide-to="' + count + '" aria-current="true" aria-label="Slide ' + (count + 1) + '"></button>'

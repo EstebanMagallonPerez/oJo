@@ -4,8 +4,13 @@ var uglify = require("uglify-js");
 dirname = "www/compiled";
 
 var compiledFile = `
+const renderEvent = new Event("render");
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.dispatchEvent(renderEvent);
+});
+
 function ccHandler(fileName, callback) {
-  console.log(this)
   var hasTemplate = this.hasAttribute("data-template");
   var isStatic = false;
   var xmlHttp = new XMLHttpRequest();
@@ -169,10 +174,9 @@ class CLASSNAME_REPLACE extends HTMLElement {
   }
 
   connectedCallback() {
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("render", function () {
       ccHandler.bind(this,"FILENAME_REPLACE",this.customOnload)()
-      
-    }.bind(this,self));
+    }.bind(this,self), { once: true });
   }
 
     disconnectedCallback() {
