@@ -14,19 +14,20 @@
   </button>
 </div>
 <script>
-  console.log("in the onload ")
-  let id = this.children[0].getAttribute("id")
-  let carouselItems = document.querySelectorAll("bs-carousel-item");
-  let cArray = [...carouselItems]
-  let output = ""
-  let count = 0;
-  cArray.forEach(element => {
-    console.log("in the foreach ")
-    output += '<button type="button" data-bs-target="'
-      + id + '"' + (count == 0 ? 'class="active"' : "")
-      + ' data-bs-slide-to="' + count + '" aria-current="true" aria-label="Slide ' + (count + 1) + '"></button>'
-    count += 1
-  });
+  let id = this.getAttribute("id")
+  let carouselItems = this.querySelectorAll("[is=bs-carousel-item]");
+  var button = document.createElement("button")
+  button.setAttribute("type", "button");
   let one = document.querySelectorAll(".carousel-indicators");
-  one[0].innerHTML = output;
+  for (var i = 0; i < carouselItems.length; i++) {
+    let tempButton = button.cloneNode(true)
+    if (i == 0) {
+      tempButton.setAttribute("aria-current", "true");
+      tempButton.setAttribute("class", "active");
+      tempButton.setAttribute("aria-label", "slide" + i + 1);
+    }
+    tempButton.setAttribute("data-bs-slide-to", "" + i);
+    tempButton.setAttribute("data-bs-target", id);
+    one[0].appendChild(tempButton)
+  };
 </script>

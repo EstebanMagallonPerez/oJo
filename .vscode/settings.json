@@ -4,7 +4,7 @@
     "commands": [
       {
         "notMatch": "compiled.*",
-        "cmd": "C:\\Windows\\System32\\wsl.exe cd /mnt/d/Desktop/Repos/oJo/ & node compile.js"
+        "cmd": "cd /mnt/d/Desktop/Repos/oJo/ & python compile.py"
       }
     ]
   }

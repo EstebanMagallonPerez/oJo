@@ -1,76 +1,65 @@
+function interpolateTemplate(element, data) {
+  // Replace placeholders in attributes
+  console.log(element, data);
+  for (let attr of Array.from(element.attributes)) {
+    Object.keys(data).forEach((key) => {
+      element.setAttribute(
+        attr.name,
+        attr.value.replaceAll("{{" + key + "}}", data[key])
+      );
+    });
+  }
+  [...element.childNodes].forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      Object.keys(data).forEach((key) => {
+        node.textContent = node.textContent.replaceAll(
+          "{{" + key + "}}",
+          data[key]
+        );
+      });
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      interpolateTemplate(node, data);
+    }
+  });
+}
 
 const renderEvent = new Event("render");
+const updateEvent = new Event("updateText");
 
 document.addEventListener("DOMContentLoaded", function () {
   document.dispatchEvent(renderEvent);
+  document.dispatchEvent(updateEvent);
 });
 
-function ccHandler(fileName, callback) {
-  var hasTemplate = this.hasAttribute("data-template");
-  var isStatic = false;
-  var xmlHttp = new XMLHttpRequest();
-  xmlHttp.open("GET", fileName, false); // false for synchronous request
-  xmlHttp.send(null);
-  var html = xmlHttp.responseText;
-  var fileName = fileName;
-  var dataName = this.getAttribute("data-template");
-  if (hasTemplate && dataName !== undefined) {
-    try {
-      var data = JSON.parse(dataName);
-      isStatic = true;
-    } catch {
-      var templateData = getKeys(html);
-      try {
-        var data = eval(dataName);
-        if (Array.isArray(data) == false) {
-          data = Object.assign(templateData, data);
-        }
-      } catch {
-        eval("window." + dataName + "= templateData");
-        var data = eval(dataName);
-      }
-    }
+storedTemplates = {};
+function getTemplate(fileName) {
+  if (Object.hasOwn(storedTemplates, fileName) == false) {
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open("GET", fileName, false); // false for synchronous request
+    xmlHttp.send(null);
+    var html = xmlHttp.responseText;
+    let res = htmlToElement(html);
+    storedTemplates[fileName] = res;
   }
-  if (hasTemplate) {
-    if (Array.isArray(data)) {
-      for (var i = 0; i < data.length; i++) {
-        var sibling = document.createElement(this.tagName);
-        sibling.setAttribute(
-          "data-template",
-          dataName + "[" + (data.length - i - 1) + "]"
-        );
-        this.insertAdjacentElement("afterend", sibling);
-      }
-      this.remove();
-      return;
-    }
-    if (isStatic === false) {
-      eval(dataName + " = createTracker(this," + dataName + ")");
-    }
-    html = fillTemplate(html, data);
-    this.updateTemplate = function (data) {
-      var html = fillTemplate(xmlHttp.responseText, data);
-      res = htmlToElement(html);
-      this.innerHTML = res.outerHTML;
-    };
-  }
-  let res = htmlToElement(html);
-  let slot = res.getElementsByTagName("slot");
-  if (slot.length > 0) {
-    let p = slot[0].parentNode;
-    slot[0].remove();
-    var div_array = [...this.children]; // converts NodeList to Array
-    div_array.forEach((div) => {
-      p.append(div);
-    });
-  }
-  this.append(res);
-  callback.bind(this)()
-
-
+  return storedTemplates[fileName].cloneNode(true);
 }
+
+function mergeAttributes(fromNode, toNode) {
+  for (let attr of fromNode.attributes) {
+    const name = attr.name;
+    const value = attr.value;
+
+    const existing = toNode.getAttribute(attr.name) || "";
+    const merged = new Set([
+      ...existing.trim().split(/\s+/),
+      ...value.trim().split(/\s+/),
+    ]);
+    toNode.setAttribute(name, [...merged].filter(Boolean).join(" "));
+  }
+}
+
 function fillTemplate(template, data) {
-	const regex = /{{\w+}}/gm;
+  const regex = /\{\{\\w+\}\}/gm;
   const str = template;
   let m;
   while ((m = regex.exec(str)) !== null) {
@@ -111,12 +100,29 @@ function getKeys(template) {
 function htmlToElement(html) {
   var template = document.createElement("template");
   html = html.trim(); // Never return a text node of whitespace as the result
-  data = {};
-  html = fillTemplate(html, data);
   template.innerHTML = html;
   return template.content.firstChild;
 }
 
+function deepWatch(obj, onChange) {
+  return new Proxy(obj, {
+    get(target, prop, receiver) {
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof val === "object" && val !== null) {
+        return deepWatch(val, onChange); // recurse into nested objects
+      }
+      return val;
+    },
+    set(target, prop, value, receiver) {
+      const oldValue = target[prop];
+      const result = Reflect.set(target, prop, value, receiver);
+      if (oldValue !== value) {
+        onChange();
+      }
+      return result;
+    },
+  });
+}
 
 function createTracker(context, data) {
   if (data.listener != undefined) {
@@ -133,23 +139,30 @@ function createTracker(context, data) {
   var length = Object.keys(data).length;
   var count = 0;
   for (var [key, value] of Object.entries(data)) {
-        if (typeof value === "string") {
-            value = "\"" + value + "\""
-        }
-        if (typeof value === "object") {
-            value = JSON.stringify(value)
-        }
-        dataWithWatcher += key + `Internal : ` + value + `,
-            set `+ key + `(val) {
-            this.`+ key + `Internal = val;
-            this.listener(val);
-            },
-            get `+ key + `() {
-            return this.`+ key + `Internal;
-            }`
-        if (count < length) { dataWithWatcher += "," }
-        count++;
-    } 
+    if (typeof value === "string") {
+      value = '"' + value + '"';
+    }
+    if (typeof value === "object") {
+      value = JSON.stringify(value);
+    }
+    dataWithWatcher +=
+      key +
+      "Internal : " +
+      value +
+      ",set " +
+      key +
+      "(val) {this." +
+      key +
+      "Internal = val; this.listener(val);},get " +
+      key +
+      "() {return this." +
+      key +
+      "Internal;}";
+    if (count < length) {
+      dataWithWatcher += ",";
+    }
+    count++;
+  }
   dataWithWatcher += "}";
 
   eval(dataWithWatcher);
@@ -158,229 +171,703 @@ function createTracker(context, data) {
   });
   return x;
 }
-class template_0 extends HTMLElement {
-    constructor() {
-        super();
-        // element created
-    }
-  customOnload(){
-    
+class template_0 extends HTMLDivElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-carousel-caption.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
+
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
   }
 
-  connectedCallback() {
-    document.addEventListener("render", function () {
-      ccHandler.bind(this,"/template/bs-carousel-caption.html",this.customOnload)()
-    }.bind(this,self), { once: true });
+  customOnload() {
+    ;
+  }
+  connectedCallback() {}
+
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
   }
 
-    disconnectedCallback() {
-        // browser calls this method when the element is removed from the document
-        // (can be called many times if an element is repeatedly added/removed)
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
     }
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-carousel-caption", template_0, { extends: "div" });class template_1 extends HTMLDivElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-carousel-container.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
 
-    static get observedAttributes() {
-        return [/* array of attribute names to monitor for changes */];
-    }
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
+  }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        // called when one of attributes listed above is modified
-    }
-
-    adoptedCallback() {
-        // called when the element is moved to a new document
-        // (happens in document.adoptNode, very rarely used)
-    }
-
-    // there can be other element methods and properties
-}customElements.define("bs-carousel-caption", template_0);
-class template_1 extends HTMLElement {
-    constructor() {
-        super();
-        // element created
-    }
-  customOnload(){
+  customOnload() {
     
-  console.log("in the onload ")
-  let id = this.children[0].getAttribute("id")
-  let carouselItems = document.querySelectorAll("bs-carousel-item");
-  let cArray = [...carouselItems]
-  let output = ""
-  let count = 0;
-  cArray.forEach(element => {
-    console.log("in the foreach ")
-    output += '<button type="button" data-bs-target="'
-      + id + '"' + (count == 0 ? 'class="active"' : "")
-      + ' data-bs-slide-to="' + count + '" aria-current="true" aria-label="Slide ' + (count + 1) + '"></button>'
-    count += 1
-  });
+  let id = this.getAttribute("id")
+  let carouselItems = this.querySelectorAll("[is=bs-carousel-item]");
+  var button = document.createElement("button")
+  button.setAttribute("type", "button");
   let one = document.querySelectorAll(".carousel-indicators");
-  one[0].innerHTML = output;
+  for (var i = 0; i < carouselItems.length; i++) {
+    let tempButton = button.cloneNode(true)
+    if (i == 0) {
+      tempButton.setAttribute("aria-current", "true");
+      tempButton.setAttribute("class", "active");
+      tempButton.setAttribute("aria-label", "slide" + i + 1);
+    }
+    tempButton.setAttribute("data-bs-slide-to", "" + i);
+    tempButton.setAttribute("data-bs-target", id);
+    one[0].appendChild(tempButton)
+  };
+;
+  }
+  connectedCallback() {}
 
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
   }
 
-  connectedCallback() {
-    document.addEventListener("render", function () {
-      ccHandler.bind(this,"/template/bs-carousel-container.html",this.customOnload)()
-    }.bind(this,self), { once: true });
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
+    }
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-carousel-container", template_1, { extends: "div" });class template_2 extends HTMLDivElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-carousel-item.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
+
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
   }
 
-    disconnectedCallback() {
-        // browser calls this method when the element is removed from the document
-        // (can be called many times if an element is repeatedly added/removed)
-    }
+  customOnload() {
+    ;
+  }
+  connectedCallback() {}
 
-    static get observedAttributes() {
-        return [/* array of attribute names to monitor for changes */];
-    }
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
+  }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        // called when one of attributes listed above is modified
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
     }
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-carousel-item", template_2, { extends: "div" });class template_3 extends HTMLDivElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-container.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
 
-    adoptedCallback() {
-        // called when the element is moved to a new document
-        // (happens in document.adoptNode, very rarely used)
-    }
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
+  }
 
-    // there can be other element methods and properties
-}customElements.define("bs-carousel-container", template_1);
-class template_2 extends HTMLElement {
-    constructor() {
-        super();
-        // element created
+  customOnload() {
+    ;
+  }
+  connectedCallback() {}
+
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
+  }
+
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
     }
-  customOnload(){
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-container", template_3, { extends: "div" });class template_4 extends HTMLLIElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-navbar-item.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
+
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
+  }
+
+  customOnload() {
+    ;
+  }
+  connectedCallback() {}
+
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
+  }
+
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
+    }
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-navbar-item", template_4, { extends: "li" });class template_5 extends HTMLElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-navbar.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
+
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
+  }
+
+  customOnload() {
+    ;
+  }
+  connectedCallback() {}
+
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
+  }
+
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
+    }
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-navbar", template_5, { extends: "nav" });class template_6 extends HTMLElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/bs-section.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
+
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
+  }
+
+  customOnload() {
+    ;
+  }
+  connectedCallback() {}
+
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
+  }
+
+  static get observedAttributes() {
+    return ["data-template"];
+  }
+  logger() {
+    console.log("we are logging some stuff", this);
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
+    }
+  }
+  // there can be other element methods and properties
+}
+customElements.define("bs-section", template_6, { extends: "section" });class template_7 extends HTMLTableRowElement {
+  constructor() {
+    // Always call super first in constructor
+    super();
+    document.addEventListener(
+      "render",
+      function () {
+        var template = getTemplate("/template/v-task.html");
+        mergeAttributes(template, this);
+        if (template.getElementsByTagName("slot").length > 0) {
+          var slot = template.getElementsByTagName("slot")[0].parentNode;
+          template.getElementsByTagName("slot")[0].remove();
+          Array.from(this.children).forEach((child) => {
+            slot.appendChild(child);
+          });
+        }
+        Array.from(template.children).forEach((child) => {
+          this.appendChild(child);
+        });
+        this.customOnload();
+      }.bind(this, self),
+      { once: true }
+    );
+    document.addEventListener(
+      "updateText",
+      function () {
+        console.log("updating");
+        const templateData = this.getAttribute("data-template");
+
+        var data;
+        if (templateData) {
+          console.log("updating", this);
+          console.log("templateData", templateData);
+          if (templateData.trim().startsWith("{")) {
+            data = new Function(`return (${templateData})`)(); // safe-ish eval
+            console.log("in if", data);
+          } else {
+            eval("data = " + templateData);
+            for (var i = 0; i < data.length; i++) {
+              let tempNode = this.cloneNode(true);
+              tempNode.setAttribute(
+                "data-template",
+                templateData + "[" + i + "]"
+              );
+              this.insertAdjacentElement("beforebegin", tempNode);
+            }
+            console.log(data);
+            if (data.length > 1) {
+              this.remove();
+            }
+          }
+        }
+        if (data != null && data != undefined) {
+          interpolateTemplate(this, data);
+        }
+      }.bind(this, self)
+    );
+  }
+
+  customOnload() {
     
+    console.log("loaded")
+;
+  }
+  connectedCallback() {}
+
+  disconnectedCallback() {
+    // browser calls this method when the element is removed from the document
+    // (can be called many times if an element is repeatedly added/removed)
   }
 
-  connectedCallback() {
-    document.addEventListener("render", function () {
-      ccHandler.bind(this,"/template/bs-carousel-item.html",this.customOnload)()
-    }.bind(this,self), { once: true });
+  static get observedAttributes() {
+    return ["data-template"];
   }
-
-    disconnectedCallback() {
-        // browser calls this method when the element is removed from the document
-        // (can be called many times if an element is repeatedly added/removed)
-    }
-
-    static get observedAttributes() {
-        return [/* array of attribute names to monitor for changes */];
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        // called when one of attributes listed above is modified
-    }
-
-    adoptedCallback() {
-        // called when the element is moved to a new document
-        // (happens in document.adoptNode, very rarely used)
-    }
-
-    // there can be other element methods and properties
-}customElements.define("bs-carousel-item", template_2);
-class template_3 extends HTMLElement {
-    constructor() {
-        super();
-        // element created
-    }
-  customOnload(){
-    
+  logger() {
+    console.log("we are logging some stuff", this);
   }
-
-  connectedCallback() {
-    document.addEventListener("render", function () {
-      ccHandler.bind(this,"/template/bs-container.html",this.customOnload)()
-    }.bind(this,self), { once: true });
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != newValue) {
+      if (updateEvent.eventPhase == 0) {
+        console.log(updateEvent.eventPhase);
+        document.dispatchEvent(updateEvent);
+      }
+    }
   }
-
-    disconnectedCallback() {
-        // browser calls this method when the element is removed from the document
-        // (can be called many times if an element is repeatedly added/removed)
-    }
-
-    static get observedAttributes() {
-        return [/* array of attribute names to monitor for changes */];
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        // called when one of attributes listed above is modified
-    }
-
-    adoptedCallback() {
-        // called when the element is moved to a new document
-        // (happens in document.adoptNode, very rarely used)
-    }
-
-    // there can be other element methods and properties
-}customElements.define("bs-container", template_3);
-class template_4 extends HTMLElement {
-    constructor() {
-        super();
-        // element created
-    }
-  customOnload(){
-    
-  }
-
-  connectedCallback() {
-    document.addEventListener("render", function () {
-      ccHandler.bind(this,"/template/bs-navbar-item.html",this.customOnload)()
-    }.bind(this,self), { once: true });
-  }
-
-    disconnectedCallback() {
-        // browser calls this method when the element is removed from the document
-        // (can be called many times if an element is repeatedly added/removed)
-    }
-
-    static get observedAttributes() {
-        return [/* array of attribute names to monitor for changes */];
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        // called when one of attributes listed above is modified
-    }
-
-    adoptedCallback() {
-        // called when the element is moved to a new document
-        // (happens in document.adoptNode, very rarely used)
-    }
-
-    // there can be other element methods and properties
-}customElements.define("bs-navbar-item", template_4);
-class template_5 extends HTMLElement {
-    constructor() {
-        super();
-        // element created
-    }
-  customOnload(){
-    
-  }
-
-  connectedCallback() {
-    document.addEventListener("render", function () {
-      ccHandler.bind(this,"/template/bs-navbar.html",this.customOnload)()
-    }.bind(this,self), { once: true });
-  }
-
-    disconnectedCallback() {
-        // browser calls this method when the element is removed from the document
-        // (can be called many times if an element is repeatedly added/removed)
-    }
-
-    static get observedAttributes() {
-        return [/* array of attribute names to monitor for changes */];
-    }
-
-    attributeChangedCallback(name, oldValue, newValue) {
-        // called when one of attributes listed above is modified
-    }
-
-    adoptedCallback() {
-        // called when the element is moved to a new document
-        // (happens in document.adoptNode, very rarely used)
-    }
-
-    // there can be other element methods and properties
-}customElements.define("bs-navbar", template_5);
+  // there can be other element methods and properties
+}
+customElements.define("v-task", template_7, { extends: "tr" });

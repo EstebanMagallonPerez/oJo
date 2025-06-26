@@ -4,47 +4,104 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
-    <title>HTTPS Server</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>oJo Frontend Framework Demo</title>
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" type="text/css" href="compiled/style.css" />
     <script src="/compiled/compiled.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
-        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 
 </head>
 
-<script>
-    carouselList = [];
-    for (var i = 0; i < 3; i += 1) {
-        carouselList.push({ "isActive": i == 0 ? "active" : "", "captionTitle": "Title " + i, "captionText": "Here is some generic text " + i })
-    }
-    let navElements = [{ "link": "#hello1", "title": "hello1" }, { "link": "#hello2", "title": "hello2" }, { "link": "#hello3", "title": "hello3" }]
-</script>
-
 <body>
-    <bs-navbar>
-        <bs-navbar-item data-template=navElements>
-        </bs-navbar-item>
-    </bs-navbar>
-    <bs-carousel-container data-template={}>
-        <bs-carousel-item data-template={"isActive":"active"}>
-            <bs-carousel-caption data-template=carouselList[0]>
-            </bs-carousel-caption>
-        </bs-carousel-item>
-        <bs-carousel-item data-template={"isActive":""}>>
-            <bs-carousel-caption data-template=carouselList[1]>
-            </bs-carousel-caption>
-        </bs-carousel-item>
-        <bs-carousel-item data-template={"isActive":""}>>
-            <bs-carousel-caption data-template=carouselList[2]>
-            </bs-carousel-caption>
-        </bs-carousel-item>
-    </bs-carousel-container>
-    <bs-container>
-    </bs-container>
+    <!-- Floating Navbar using custom elements -->
+    <nav is="bs-navbar" class="navbar fixed-top bg-white shadow-sm">
+        <li is="bs-navbar-item"
+            data-template='[{"link": "#carousel-section", "title": "Carousel"}, {"link": "#about-section", "title": "About"}, {"link": "#features-section", "title": "Features"}]'>
+        </li>
+    </nav>
+    <!-- Carousel Section -->
+    <section is="bs-section" id="carousel-section">
+        <div is="bs-carousel-container">
+            <div is="bs-carousel-item" data-template="{isActive:'active',altText:'First slide'}">
+                <div is="bs-carousel-caption"
+                    data-template="{captionTitle:'Welcome to oJo',captionText:'A custom frontend framework using Bootstrap templates!'}">
+                </div>
+            </div>
+            <div is="bs-carousel-item" data-template="{isActive:'',altText:'Second slide'}">
+                <div is="bs-carousel-caption"
+                    data-template="{captionTitle:'Reusable Components',captionText:'Build UIs with HTML templates and custom elements.'}">
+                </div>
+            </div>
+            <div is="bs-carousel-item" data-template="{isActive:'',altText:'Third slide'}">
+                <div is="bs-carousel-caption"
+                    data-template="{captionTitle:'Powered by Bootstrap',captionText:'Enjoy all the power of Bootstrap 5 with your own syntax.'}">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section is="bs-section" id="about-section">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <h2>About the oJo Frontend Framework</h2>
+                <p>
+                    This project uses a custom frontend framework oJo that
+                    allows you to build web UIs using HTML templates and custom elements. Instead of writing
+                    JavaScript-heavy code, you define your UI in HTML and use special <code>is="component-name"</code>
+                    attributes to render Bootstrap-based components.
+                </p>
+                <ul>
+                    <li>Templates are stored in <code>www/template/</code> as HTML files.</li>
+                    <li>Custom elements like <code>bs-navbar</code>, <code>bs-carousel-container</code>, and
+                        <code>bs-container</code> are rendered dynamically.
+                    </li>
+                    <li>Data can be passed to components using the <code>data-template</code> attribute.</li>
+                    <li>All components are styled with Bootstrap 5 for a modern look and feel.</li>
+                </ul>
+                <h4 class="mt-4">Example: Simple Template Usage</h4>
+                <pre><code>&lt;div is="bs-container"&gt;
+    &lt;h1&gt;Hello World!&lt;/h1&gt;
+&lt;/div&gt;
+</code></pre>
+                <h4 class="mt-3">Example: Nested Templates Unrolling</h4>
+                <pre><code>&lt;div is="bs-container"&gt;
+    &lt;div is="bs-carousel-container"&gt;
+        &lt;div is="bs-carousel-item" data-template="{isActive:'active'}"&gt;
+            &lt;div is="bs-carousel-caption" data-template="{captionTitle:'Nested!',captionText:'This is deeply nested.'}"&gt;&lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+                <p class="text-muted">The above single line of HTML will be expanded at runtime into a full Bootstrap
+                    carousel with all nested elements rendered and data applied, thanks to the oJo framework's template
+                    system.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section is="bs-section" id="features-section">
+        <div class="row">
+            <div class="col-md-4">
+                <h3>Component-based</h3>
+                <p>Build your UI with reusable HTML templates and custom elements.</p>
+            </div>
+            <div class="col-md-4">
+                <h3>Bootstrap Integration</h3>
+                <p>Leverage the full power of Bootstrap 5 for responsive, beautiful layouts.</p>
+            </div>
+            <div class="col-md-4">
+                <h3>Declarative Syntax</h3>
+                <p>Describe your UI in HTML, not JavaScript. Pass data easily with <code>data-template</code>.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="text-center py-4 bg-light mt-5">
+        <small>&copy; 2025 oJo Frontend Framework Demo</small>
+    </footer>
 </body>
 
 </html>
