@@ -5,17 +5,22 @@ A simple, declarative frontend framework using HTML templates and custom element
 ## Getting Started
 
 1. **Install Python 3** (if not already installed)
-2. Start the server:
+2. Build the project to generate the JavaScript for template elements:
+   ```sh
+   python compile.py
+   ```
+3. Start the server:
    ```sh
    python server.py
    ```
-3. Open your browser to [http://localhost:3000](http://localhost:3000)
+4. Open your browser to [http://localhost:3000](http://localhost:3000)
 
 ## Project Structure
 
 - `www/` — All static files and templates
 - `www/template/` — HTML templates for custom elements
 - `server.py` — Python HTTP server
+- `compile.py` — Build script to generate the JavaScript for custom elements
 
 ## How It Works
 
@@ -25,6 +30,7 @@ A simple, declarative frontend framework using HTML templates and custom element
 - The framework expands a single line of HTML with nested custom elements into full markup at runtime.
 - While Bootstrap 5 is used in this example, you can adapt the templates to use any frontend library or CSS framework you prefer.
 - **Note:** Template and custom element names must be in the format `somestring-somestring` (contain a hyphen `-`). This is required by the browser's custom elements specification and is necessary for your components to work correctly.
+- **Note:** You must run `python compile.py` to generate the JavaScript (`compiled/compiled.js`) that enables your custom template elements before starting the server.
 
 ## Example: Simple Template Usage
 
