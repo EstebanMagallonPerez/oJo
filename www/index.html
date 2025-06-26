@@ -59,6 +59,7 @@
                     </li>
                     <li>Data can be passed to components using the <code>data-template</code> attribute.</li>
                     <li>All components are styled with Bootstrap 5 for a modern look and feel.</li>
+                    <li class="mt-2"><strong>Note:</strong> Template and custom element names must be in the format <code>somestring-somestring</code> (contain a hyphen <code>-</code>). This is required by the browser's custom elements specification and is necessary for your components to work correctly.</li>
                 </ul>
                 <h4 class="mt-4">Example: Simple Template Usage</h4>
                 <pre><code>&lt;div is="bs-container"&gt;
@@ -82,7 +83,7 @@
     </section>
 
     <!-- Features Section -->
-    <section is="bs-section" id="features-section">
+    <section is="bs-section" id="features-section" class="container">
         <div class="row">
             <div class="col-md-4">
                 <h3>Component-based</h3>

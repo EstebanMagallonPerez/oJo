@@ -24,6 +24,7 @@ A simple, declarative frontend framework using HTML templates and custom element
 - Data can be passed to components using the `data-template` attribute.
 - The framework expands a single line of HTML with nested custom elements into full markup at runtime.
 - While Bootstrap 5 is used in this example, you can adapt the templates to use any frontend library or CSS framework you prefer.
+- **Note:** Template and custom element names must be in the format `somestring-somestring` (contain a hyphen `-`). This is required by the browser's custom elements specification and is necessary for your components to work correctly.
 
 ## Example: Simple Template Usage
 
