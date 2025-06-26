@@ -60,7 +60,6 @@ The above single line of HTML will be expanded at runtime into a full Bootstrap 
 ## Features
 
 - Component-based UI with reusable HTML templates
-- Bootstrap 5 integration for modern, responsive layouts (or use your own framework)
 - Declarative syntax: describe your UI in HTML, not JavaScript
 - Easy data binding with `data-template`
 
