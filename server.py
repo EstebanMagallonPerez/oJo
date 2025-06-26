@@ -1,5 +1,4 @@
 import http.server
-import ssl
 import os
 
 class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -15,11 +14,7 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 def run(server_class=http.server.HTTPServer, handler_class=CustomHTTPRequestHandler):
     server_address = ('', 3000)
     httpd = server_class(server_address, handler_class)
-    # Use HTTPS with the same cert/key as before
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(certfile='server.cert', keyfile='server.key')
-    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
-    print('Serving HTTPS on port 3000...')
+    print('Serving HTTP on port 3000...')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
