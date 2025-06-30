@@ -1,6 +1,15 @@
+const renderEvent = new Event("render");
+const updateEvent = new Event("updateData");
+const initEvent = new Event("initData");
+storedTemplates = {};
+proxyBackedVariables = {};
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.dispatchEvent(renderEvent);
+});
+
 function interpolateTemplate(element, data) {
   // Replace placeholders in attributes
-  console.log(element, data);
   for (let attr of Array.from(element.attributes)) {
     Object.keys(data).forEach((key) => {
       element.setAttribute(
@@ -10,11 +19,15 @@ function interpolateTemplate(element, data) {
     });
   }
   [...element.childNodes].forEach((node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
+    if (
+      node.innerHTML !== undefined &&
+      node.innerHTML !== null &&
+      node.innerHTML.trim() !== ""
+    ) {
       Object.keys(data).forEach((key) => {
-        node.textContent = node.textContent.replaceAll(
+        node.innerHTML = node.innerHTML.replaceAll(
           "{{" + key + "}}",
-          data[key]
+          "<span data-reference='" + key + "'>" + data[key] + "</span>"
         );
       });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -23,15 +36,6 @@ function interpolateTemplate(element, data) {
   });
 }
 
-const renderEvent = new Event("render");
-const updateEvent = new Event("updateText");
-
-document.addEventListener("DOMContentLoaded", function () {
-  document.dispatchEvent(renderEvent);
-  document.dispatchEvent(updateEvent);
-});
-
-storedTemplates = {};
 function getTemplate(fileName) {
   if (Object.hasOwn(storedTemplates, fileName) == false) {
     var xmlHttp = new XMLHttpRequest();
@@ -58,45 +62,6 @@ function mergeAttributes(fromNode, toNode) {
   }
 }
 
-function fillTemplate(template, data) {
-  const regex = /\{\{\\w+\}\}/gm;
-  const str = template;
-  let m;
-  while ((m = regex.exec(str)) !== null) {
-    if (m.index === regex.lastIndex) {
-      regex.lastIndex++;
-    }
-    m.forEach((match, groupIndex) => {
-      for (const [key, value] of Object.entries(data)) {
-        if (key == match.replaceAll("{", "").replaceAll("}", "")) {
-          if (typeof value !== typeof "") {
-            let value1 = JSON.stringify(value);
-            template = template.replaceAll(match, value1);
-          } else {
-            template = template.replaceAll(match, value);
-          }
-          break;
-        }
-      }
-    });
-    m.forEach((match, groupIndex) => {
-      template = template.replaceAll(match, "");
-    });
-  }
-  return template;
-}
-function getKeys(template) {
-  dummyDict = {};
-  var sindex = template.indexOf("{{");
-  var eindex = template.indexOf("}}");
-  while (sindex > -1 && eindex > -1) {
-    key = template.substring(sindex + 2, eindex);
-    dummyDict[key] = "";
-    eindex = template.indexOf("}}", eindex + 2);
-    sindex = template.indexOf("{{", sindex + 2);
-  }
-  return dummyDict;
-}
 function htmlToElement(html) {
   var template = document.createElement("template");
   html = html.trim(); // Never return a text node of whitespace as the result
@@ -104,70 +69,93 @@ function htmlToElement(html) {
   return template.content.firstChild;
 }
 
-function deepWatch(obj, onChange) {
-  return new Proxy(obj, {
-    get(target, prop, receiver) {
-      const val = Reflect.get(target, prop, receiver);
-      if (typeof val === "object" && val !== null) {
-        return deepWatch(val, onChange); // recurse into nested objects
-      }
-      return val;
-    },
-    set(target, prop, value, receiver) {
-      const oldValue = target[prop];
-      const result = Reflect.set(target, prop, value, receiver);
-      if (oldValue !== value) {
-        onChange();
-      }
-      return result;
-    },
-  });
+// Handler for 'render' event for custom elements
+function handleRenderEvent(self, templateName) {
+  // this function handles moving the template from the file system to the DOM
+  // and merging attributes from the template to the custom element
+  return function () {
+    var template = getTemplate(templateName);
+    // Save the original template HTML for future updates (before any interpolation)
+    if (!self._originalTemplateHTML) {
+      self._originalTemplateHTML = template.innerHTML;
+    }
+    mergeAttributes(template, self);
+    if (template.getElementsByTagName("slot").length > 0) {
+      var slot = template.getElementsByTagName("slot")[0].parentNode;
+      template.getElementsByTagName("slot")[0].remove();
+      Array.from(self.children).forEach((child) => {
+        slot.appendChild(child);
+      });
+    }
+    Array.from(template.children).forEach((child) => {
+      self.appendChild(child);
+    });
+    if (typeof self.customOnload === "function") {
+      self.customOnload();
+    }
+  };
 }
 
-function createTracker(context, data) {
-  if (data.listener != undefined) {
-    return data;
-  }
-  dataWithWatcher = `var x = {listener: undefined,
-            set (){
-                this.internal = val;
-                this.listener(val);
-            },
-            registerListener: function(listener) {
-            this.listener = listener;
-        },`;
-  var length = Object.keys(data).length;
-  var count = 0;
-  for (var [key, value] of Object.entries(data)) {
-    if (typeof value === "string") {
-      value = '"' + value + '"';
+// Handler for 'initData' event for custom elements
+function handleInitDataEvent(self) {
+  return function () {
+    const templateData = self.getAttribute("data-template");
+    var data;
+    if (templateData) {
+      if (templateData.trim().startsWith("{")) {
+        data = new Function(`return (${templateData})`)(); // safe-ish eval
+      } else {
+        eval("data = " + templateData);
+        for (var i = 0; i < data.length; i++) {
+          let tempNode = self.cloneNode(true);
+          tempNode.setAttribute("data-template", templateData + "[" + i + "]");
+          self.insertAdjacentElement("beforebegin", tempNode);
+        }
+        if (data.length > 1) {
+          self.remove();
+        }
+      }
     }
-    if (typeof value === "object") {
-      value = JSON.stringify(value);
+    if (data != null && data != undefined) {
+      interpolateTemplate(self, data);
     }
-    dataWithWatcher +=
-      key +
-      "Internal : " +
-      value +
-      ",set " +
-      key +
-      "(val) {this." +
-      key +
-      "Internal = val; this.listener(val);},get " +
-      key +
-      "() {return this." +
-      key +
-      "Internal;}";
-    if (count < length) {
-      dataWithWatcher += ",";
-    }
-    count++;
-  }
-  dataWithWatcher += "}";
-
-  eval(dataWithWatcher);
-  x.registerListener(function (val) {
-    context.updateTemplate(this);
-  });
-  return x;
+  };
 }
+
+// Debounce utility
+function debounce(fn, delay) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// MutationObserver to debounce and dispatch initData after DOM settles
+(function setupInitDataMutationObserver() {
+  const DEBOUNCE_DELAY = 10; // ms
+  const debouncedInit = debounce(() => {
+    console.log(
+      "[LOG] Dispatching debounced initData event after DOM mutation"
+    );
+    document.dispatchEvent(initEvent);
+  }, DEBOUNCE_DELAY);
+  const observer = new MutationObserver(() => {
+    debouncedInit();
+  });
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+  } else {
+    document.addEventListener("DOMContentLoaded", function () {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+    });
+  }
+})();

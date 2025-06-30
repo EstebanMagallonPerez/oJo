@@ -1,6 +1,15 @@
+const renderEvent = new Event("render");
+const updateEvent = new Event("updateData");
+const initEvent = new Event("initData");
+storedTemplates = {};
+proxyBackedVariables = {};
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.dispatchEvent(renderEvent);
+});
+
 function interpolateTemplate(element, data) {
   // Replace placeholders in attributes
-  console.log(element, data);
   for (let attr of Array.from(element.attributes)) {
     Object.keys(data).forEach((key) => {
       element.setAttribute(
@@ -10,11 +19,15 @@ function interpolateTemplate(element, data) {
     });
   }
   [...element.childNodes].forEach((node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
+    if (
+      node.innerHTML !== undefined &&
+      node.innerHTML !== null &&
+      node.innerHTML.trim() !== ""
+    ) {
       Object.keys(data).forEach((key) => {
-        node.textContent = node.textContent.replaceAll(
+        node.innerHTML = node.innerHTML.replaceAll(
           "{{" + key + "}}",
-          data[key]
+          "<span data-reference='" + key + "'>" + data[key] + "</span>"
         );
       });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -23,15 +36,6 @@ function interpolateTemplate(element, data) {
   });
 }
 
-const renderEvent = new Event("render");
-const updateEvent = new Event("updateText");
-
-document.addEventListener("DOMContentLoaded", function () {
-  document.dispatchEvent(renderEvent);
-  document.dispatchEvent(updateEvent);
-});
-
-storedTemplates = {};
 function getTemplate(fileName) {
   if (Object.hasOwn(storedTemplates, fileName) == false) {
     var xmlHttp = new XMLHttpRequest();
@@ -58,45 +62,6 @@ function mergeAttributes(fromNode, toNode) {
   }
 }
 
-function fillTemplate(template, data) {
-  const regex = /\{\{\\w+\}\}/gm;
-  const str = template;
-  let m;
-  while ((m = regex.exec(str)) !== null) {
-    if (m.index === regex.lastIndex) {
-      regex.lastIndex++;
-    }
-    m.forEach((match, groupIndex) => {
-      for (const [key, value] of Object.entries(data)) {
-        if (key == match.replaceAll("{", "").replaceAll("}", "")) {
-          if (typeof value !== typeof "") {
-            let value1 = JSON.stringify(value);
-            template = template.replaceAll(match, value1);
-          } else {
-            template = template.replaceAll(match, value);
-          }
-          break;
-        }
-      }
-    });
-    m.forEach((match, groupIndex) => {
-      template = template.replaceAll(match, "");
-    });
-  }
-  return template;
-}
-function getKeys(template) {
-  dummyDict = {};
-  var sindex = template.indexOf("{{");
-  var eindex = template.indexOf("}}");
-  while (sindex > -1 && eindex > -1) {
-    key = template.substring(sindex + 2, eindex);
-    dummyDict[key] = "";
-    eindex = template.indexOf("}}", eindex + 2);
-    sindex = template.indexOf("{{", sindex + 2);
-  }
-  return dummyDict;
-}
 function htmlToElement(html) {
   var template = document.createElement("template");
   html = html.trim(); // Never return a text node of whitespace as the result
@@ -104,138 +69,145 @@ function htmlToElement(html) {
   return template.content.firstChild;
 }
 
-function deepWatch(obj, onChange) {
-  return new Proxy(obj, {
-    get(target, prop, receiver) {
-      const val = Reflect.get(target, prop, receiver);
-      if (typeof val === "object" && val !== null) {
-        return deepWatch(val, onChange); // recurse into nested objects
-      }
-      return val;
-    },
-    set(target, prop, value, receiver) {
-      const oldValue = target[prop];
-      const result = Reflect.set(target, prop, value, receiver);
-      if (oldValue !== value) {
-        onChange();
-      }
-      return result;
-    },
-  });
+// Handler for 'render' event for custom elements
+function handleRenderEvent(self, templateName) {
+  // this function handles moving the template from the file system to the DOM
+  // and merging attributes from the template to the custom element
+  return function () {
+    var template = getTemplate(templateName);
+    // Save the original template HTML for future updates (before any interpolation)
+    if (!self._originalTemplateHTML) {
+      self._originalTemplateHTML = template.innerHTML;
+    }
+    mergeAttributes(template, self);
+    if (template.getElementsByTagName("slot").length > 0) {
+      var slot = template.getElementsByTagName("slot")[0].parentNode;
+      template.getElementsByTagName("slot")[0].remove();
+      Array.from(self.children).forEach((child) => {
+        slot.appendChild(child);
+      });
+    }
+    Array.from(template.children).forEach((child) => {
+      self.appendChild(child);
+    });
+    if (typeof self.customOnload === "function") {
+      self.customOnload();
+    }
+  };
 }
 
-function createTracker(context, data) {
-  if (data.listener != undefined) {
-    return data;
-  }
-  dataWithWatcher = `var x = {listener: undefined,
-            set (){
-                this.internal = val;
-                this.listener(val);
-            },
-            registerListener: function(listener) {
-            this.listener = listener;
-        },`;
-  var length = Object.keys(data).length;
-  var count = 0;
-  for (var [key, value] of Object.entries(data)) {
-    if (typeof value === "string") {
-      value = '"' + value + '"';
+// Handler for 'initData' event for custom elements
+function handleInitDataEvent(self) {
+  return function () {
+    const templateData = self.getAttribute("data-template");
+    var data;
+    if (templateData) {
+      if (templateData.trim().startsWith("{")) {
+        data = new Function(`return (${templateData})`)(); // safe-ish eval
+      } else {
+        eval("data = " + templateData);
+        for (var i = 0; i < data.length; i++) {
+          let tempNode = self.cloneNode(true);
+          tempNode.setAttribute("data-template", templateData + "[" + i + "]");
+          self.insertAdjacentElement("beforebegin", tempNode);
+        }
+        if (data.length > 1) {
+          self.remove();
+        }
+      }
     }
-    if (typeof value === "object") {
-      value = JSON.stringify(value);
+    if (data != null && data != undefined) {
+      interpolateTemplate(self, data);
     }
-    dataWithWatcher +=
-      key +
-      "Internal : " +
-      value +
-      ",set " +
-      key +
-      "(val) {this." +
-      key +
-      "Internal = val; this.listener(val);},get " +
-      key +
-      "() {return this." +
-      key +
-      "Internal;}";
-    if (count < length) {
-      dataWithWatcher += ",";
-    }
-    count++;
-  }
-  dataWithWatcher += "}";
-
-  eval(dataWithWatcher);
-  x.registerListener(function (val) {
-    context.updateTemplate(this);
-  });
-  return x;
+  };
 }
+
+// Debounce utility
+function debounce(fn, delay) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// MutationObserver to debounce and dispatch initData after DOM settles
+(function setupInitDataMutationObserver() {
+  const DEBOUNCE_DELAY = 10; // ms
+  const debouncedInit = debounce(() => {
+    console.log(
+      "[LOG] Dispatching debounced initData event after DOM mutation"
+    );
+    document.dispatchEvent(initEvent);
+  }, DEBOUNCE_DELAY);
+  const observer = new MutationObserver(() => {
+    debouncedInit();
+  });
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+  } else {
+    document.addEventListener("DOMContentLoaded", function () {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+    });
+  }
+})();
 class template_0 extends HTMLDivElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-carousel-caption.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-carousel-caption.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -243,13 +215,10 @@ class template_0 extends HTMLDivElement {
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
@@ -257,65 +226,23 @@ class template_0 extends HTMLDivElement {
   // there can be other element methods and properties
 }
 customElements.define("bs-carousel-caption", template_0, { extends: "div" });class template_1 extends HTMLDivElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-carousel-container.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-carousel-container.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     
   let id = this.getAttribute("id")
   let carouselItems = this.querySelectorAll("[is=bs-carousel-item]");
@@ -335,9 +262,35 @@ customElements.define("bs-carousel-caption", template_0, { extends: "div" });cla
   };
 ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -345,13 +298,10 @@ customElements.define("bs-carousel-caption", template_0, { extends: "div" });cla
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
@@ -359,70 +309,54 @@ customElements.define("bs-carousel-caption", template_0, { extends: "div" });cla
   // there can be other element methods and properties
 }
 customElements.define("bs-carousel-container", template_1, { extends: "div" });class template_2 extends HTMLDivElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-carousel-item.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-carousel-item.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -430,13 +364,10 @@ customElements.define("bs-carousel-container", template_1, { extends: "div" });c
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
@@ -444,70 +375,54 @@ customElements.define("bs-carousel-container", template_1, { extends: "div" });c
   // there can be other element methods and properties
 }
 customElements.define("bs-carousel-item", template_2, { extends: "div" });class template_3 extends HTMLDivElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-container.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-container.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -515,13 +430,10 @@ customElements.define("bs-carousel-item", template_2, { extends: "div" });class 
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
@@ -529,70 +441,54 @@ customElements.define("bs-carousel-item", template_2, { extends: "div" });class 
   // there can be other element methods and properties
 }
 customElements.define("bs-container", template_3, { extends: "div" });class template_4 extends HTMLLIElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-navbar-item.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-navbar-item.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -600,13 +496,10 @@ customElements.define("bs-container", template_3, { extends: "div" });class temp
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
@@ -614,70 +507,54 @@ customElements.define("bs-container", template_3, { extends: "div" });class temp
   // there can be other element methods and properties
 }
 customElements.define("bs-navbar-item", template_4, { extends: "li" });class template_5 extends HTMLElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-navbar.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-navbar.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -685,13 +562,10 @@ customElements.define("bs-navbar-item", template_4, { extends: "li" });class tem
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
@@ -699,70 +573,54 @@ customElements.define("bs-navbar-item", template_4, { extends: "li" });class tem
   // there can be other element methods and properties
 }
 customElements.define("bs-navbar", template_5, { extends: "nav" });class template_6 extends HTMLElement {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("/template/bs-section.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "/template/bs-section.html"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -770,104 +628,14 @@ customElements.define("bs-navbar", template_5, { extends: "nav" });class templat
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
   }
   // there can be other element methods and properties
 }
-customElements.define("bs-section", template_6, { extends: "section" });class template_7 extends HTMLTableRowElement {
-  constructor() {
-    // Always call super first in constructor
-    super();
-    document.addEventListener(
-      "render",
-      function () {
-        var template = getTemplate("/template/v-task.html");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
-      { once: true }
-    );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
-  }
-
-  customOnload() {
-    
-    console.log("loaded")
-;
-  }
-  connectedCallback() {}
-
-  disconnectedCallback() {
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
-
-  static get observedAttributes() {
-    return ["data-template"];
-  }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
-        document.dispatchEvent(updateEvent);
-      }
-    }
-  }
-  // there can be other element methods and properties
-}
-customElements.define("v-task", template_7, { extends: "tr" });
+customElements.define("bs-section", template_6, { extends: "section" });

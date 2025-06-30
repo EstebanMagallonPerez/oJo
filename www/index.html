@@ -31,14 +31,40 @@
             });
         });
     </script>
+    <script>
+        proxyMap = {};
+        objToObserve = [];
+        // WatchedObject class: Proxy-based object with callback on value change
+        class WatchedObject {
+            constructor(obj,) {
+                var proxy = new Proxy(obj, {
+                    set(target, prop, value, receiver) {
+                        const oldVal = target[prop];
+                        target[prop] = value;
+                        if (oldVal !== value) {
+                            document.dispatchEvent(new Event("updateData"));
+                            console.log("change", prop, oldVal, value);
+                        }
+                        return value;
+                    }
+                });
+                objToObserve.push(proxy);
+                return proxy;
+            }
+        }
+
+        // Example usage:
+        const n1 = new WatchedObject({ link: "#about-section", title: "About" });
+        const n2 = new WatchedObject({ link: "#features-section", title: "Features" });
+        navbarData = [n1, n2];
+    </script>
 
 </head>
 
 <body>
     <!-- Floating Navbar using custom elements -->
     <nav is="bs-navbar" class="navbar fixed-top bg-white shadow-sm">
-        <li is="bs-navbar-item"
-            data-template='[{"link": "#about-section", "title": "About"}, {"link": "#features-section", "title": "Features"}]'>
+        <li is="bs-navbar-item" data-template='navbarData'>
         </li>
     </nav>
     <!-- Carousel Section -->

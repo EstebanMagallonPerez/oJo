@@ -1,68 +1,52 @@
 class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
+  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
+    // Use helper.js handlers for render and initData
     document.addEventListener(
       "render",
-      function () {
-        var template = getTemplate("FILENAME_REPLACE");
-        mergeAttributes(template, this);
-        if (template.getElementsByTagName("slot").length > 0) {
-          var slot = template.getElementsByTagName("slot")[0].parentNode;
-          template.getElementsByTagName("slot")[0].remove();
-          Array.from(this.children).forEach((child) => {
-            slot.appendChild(child);
-          });
-        }
-        Array.from(template.children).forEach((child) => {
-          this.appendChild(child);
-        });
-        this.customOnload();
-      }.bind(this, self),
+      handleRenderEvent(this, "FILENAME_REPLACE"),
       { once: true }
     );
-    document.addEventListener(
-      "updateText",
-      function () {
-        console.log("updating");
-        const templateData = this.getAttribute("data-template");
-
-        var data;
-        if (templateData) {
-          console.log("updating", this);
-          console.log("templateData", templateData);
-          if (templateData.trim().startsWith("{")) {
-            data = new Function(`return (${templateData})`)(); // safe-ish eval
-            console.log("in if", data);
-          } else {
-            eval("data = " + templateData);
-            for (var i = 0; i < data.length; i++) {
-              let tempNode = this.cloneNode(true);
-              tempNode.setAttribute(
-                "data-template",
-                templateData + "[" + i + "]"
-              );
-              this.insertAdjacentElement("beforebegin", tempNode);
-            }
-            console.log(data);
-            if (data.length > 1) {
-              this.remove();
-            }
-          }
-        }
-        if (data != null && data != undefined) {
-          interpolateTemplate(this, data);
-        }
-      }.bind(this, self)
-    );
+    document.addEventListener("initData", handleInitDataEvent(this), {
+      once: true,
+    });
   }
 
   customOnload() {
+    // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     CUSTOM_ONLOAD;
   }
-  connectedCallback() {}
+  connectedCallback() {
+    // Add updateData event listener when element is connected
+    this._updateDataHandler = function () {
+      console.log("----------------Update Data Handler Called----------------");
+      // Get latest data from data-template attribute
+      const templateData = this.getAttribute("data-template");
+      let data;
+      if (templateData) {
+        if (templateData.trim().startsWith("{")) {
+          data = new Function(`return (${templateData})`)();
+        } else {
+          eval("data = " + templateData);
+        }
+      }
+      console.log("data is:", data);
+      if (data != null && data != undefined) {
+        interpolateTemplate(this, data);
+      } else {
+        console.log("[updateDataHandler] No data found to update for", this);
+      }
+    }.bind(this);
+    document.addEventListener("updateData", this._updateDataHandler);
+  }
 
   disconnectedCallback() {
+    // Remove updateData event listener when element is disconnected
+    if (this._updateDataHandler) {
+      document.removeEventListener("updateData", this._updateDataHandler);
+    }
     // browser calls this method when the element is removed from the document
     // (can be called many times if an element is repeatedly added/removed)
   }
@@ -70,13 +54,10 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
   static get observedAttributes() {
     return ["data-template"];
   }
-  logger() {
-    console.log("we are logging some stuff", this);
-  }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue != newValue) {
       if (updateEvent.eventPhase == 0) {
-        console.log(updateEvent.eventPhase);
         document.dispatchEvent(updateEvent);
       }
     }
