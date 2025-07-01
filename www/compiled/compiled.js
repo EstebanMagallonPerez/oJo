@@ -1,54 +1,15 @@
-const renderEvent = new Event("render");
-const updateEvent = new Event("updateData");
-const initEvent = new Event("initData");
-storedTemplates = {};
-proxyBackedVariables = {};
-
-document.addEventListener("DOMContentLoaded", function () {
-  document.dispatchEvent(renderEvent);
+const updateEvent = new Event("oJoUpdate");
+document.addEventListener("ojoUpdate", () => {
+  console.log("ojoUpdate event triggered");
+});
+document.addEventListener("oJoPrepare", () => {
+  console.log("oJoPrepare event triggered");
+});
+document.addEventListener("DOMContentLoaded", () => {
+  document.dispatchEvent(new Event("oJoPrepare"));
 });
 
-function interpolateTemplate(element, data) {
-  // Replace placeholders in attributes
-  for (let attr of Array.from(element.attributes)) {
-    Object.keys(data).forEach((key) => {
-      element.setAttribute(
-        attr.name,
-        attr.value.replaceAll("{{" + key + "}}", data[key])
-      );
-    });
-  }
-  nodeList = [];
-  [...element.childNodes].forEach((node) => {
-    if (
-      node.innerHTML !== undefined &&
-      node.innerHTML !== null &&
-      node.innerHTML.trim() !== ""
-    ) {
-      Object.keys(data).forEach((key) => {
-        if (node.innerHTML.includes("{{" + key + "}}")) {
-          nodeList.push("{{" + key + "}}");
-        }
-        node.innerHTML = node.innerHTML.replaceAll(
-          "{{" + key + "}}",
-          "<span data-reference='" + key + "'>" + data[key] + "</span>"
-        );
-      });
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      nodeList = interpolateTemplate(node, data);
-      console.log("nodeList1 is:", nodeList);
-    }
-  });
-  nodeList.push("");
-  nodeList = nodeList.filter(function (element) {
-    return element !== undefined;
-  });
-  const stringToAdd = element.tagName + ">";
-
-  nodeList = nodeList.map((element) => stringToAdd + element);
-  return nodeList;
-}
-
+storedTemplates = {};
 function getTemplate(fileName) {
   if (Object.hasOwn(storedTemplates, fileName) == false) {
     var xmlHttp = new XMLHttpRequest();
@@ -59,6 +20,28 @@ function getTemplate(fileName) {
     storedTemplates[fileName] = res;
   }
   return storedTemplates[fileName].cloneNode(true);
+}
+class WatchedObject {
+  constructor(obj) {
+    var proxy = new Proxy(obj, {
+      set(target, prop, value, receiver) {
+        const oldVal = target[prop];
+        target[prop] = value;
+        if (oldVal !== value) {
+          document.dispatchEvent(new Event("oJoUpdate"));
+        }
+        return value;
+      },
+    });
+    return proxy;
+  }
+}
+
+function htmlToElement(html) {
+  var template = document.createElement("template");
+  html = html.trim(); // Never return a text node of whitespace as the result
+  template.innerHTML = html;
+  return template.content.firstChild;
 }
 
 function mergeAttributes(fromNode, toNode) {
@@ -75,114 +58,154 @@ function mergeAttributes(fromNode, toNode) {
   }
 }
 
-function htmlToElement(html) {
-  var template = document.createElement("template");
-  html = html.trim(); // Never return a text node of whitespace as the result
-  template.innerHTML = html;
-  return template.content.firstChild;
-}
-
-// Handler for 'render' event for custom elements
-function handleRenderEvent(self, templateName) {
-  // this function handles moving the template from the file system to the DOM
-  // and merging attributes from the template to the custom element
-  return function () {
-    var template = getTemplate(templateName);
-    // Save the original template HTML for future updates (before any interpolation)
-    if (!self._originalTemplateHTML) {
-      self._originalTemplateHTML = template.innerHTML;
-    }
-    mergeAttributes(template, self);
-    if (template.getElementsByTagName("slot").length > 0) {
-      var slot = template.getElementsByTagName("slot")[0].parentNode;
-      template.getElementsByTagName("slot")[0].remove();
-      Array.from(self.children).forEach((child) => {
-        slot.appendChild(child);
-      });
-    }
-    Array.from(template.children).forEach((child) => {
-      self.appendChild(child);
+function handleRenderEvent() {
+  var template = getTemplate(this.filename);
+  mergeAttributes(template, this);
+  if (template.getElementsByTagName("slot").length > 0) {
+    var slot = template.getElementsByTagName("slot")[0].parentNode;
+    template.getElementsByTagName("slot")[0].remove();
+    Array.from(this.children).forEach((child) => {
+      slot.appendChild(child);
     });
-    if (typeof self.customOnload === "function") {
-      self.customOnload();
-    }
-  };
+  }
+  Array.from(template.children).forEach((child) => {
+    this.appendChild(child);
+  });
+  if (typeof this.customOnload === "function") {
+    this.customOnload();
+  }
 }
 
-// Handler for 'initData' event for custom elements
-function handleInitDataEvent(self) {
-  return function () {
-    const templateData = self.getAttribute("data-template");
-    var data;
-    if (templateData) {
-      if (templateData.trim().startsWith("{")) {
-        data = new Function(`return (${templateData})`)(); // safe-ish eval
-      } else {
-        eval("data = " + templateData);
-        for (var i = 0; i < data.length; i++) {
-          let tempNode = self.cloneNode(true);
-          tempNode.setAttribute("data-template", templateData + "[" + i + "]");
-          self.insertAdjacentElement("beforebegin", tempNode);
-        }
-        if (data.length > 1) {
-          self.remove();
+function recursiveTraverse(node, parent) {
+  let trimmedText = node.textContent.trim();
+  // Check for attributes with {{varName}} syntax
+  if (node.hasAttributes()) {
+    for (let attr of node.attributes) {
+      const regex = /{{.*?}}/gm;
+      const found = attr.value.match(regex);
+      if (found !== null) {
+        for (let i = 0; i < found.length; i++) {
+          const varName = found[i].replace(/[{}]/g, "").trim();
+          if (!parent.updateDict[varName]) {
+            parent.updateDict[varName] = [];
+          }
+          parent.updateDict[varName].push({
+            node: node,
+            attributeName: attr.name,
+            baseValue: attr.value,
+            updateType: "attribute",
+          });
         }
       }
     }
-    if (data != null && data != undefined) {
-      findList = interpolateTemplate(self, data);
-      console.log("findList is:", findList);
-    }
-  };
-}
-
-// Debounce utility
-function debounce(fn, delay) {
-  let timer = null;
-  return function (...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
-
-// MutationObserver to debounce and dispatch initData after DOM settles
-(function setupInitDataMutationObserver() {
-  const DEBOUNCE_DELAY = 10; // ms
-  const debouncedInit = debounce(() => {
-    document.dispatchEvent(initEvent);
-  }, DEBOUNCE_DELAY);
-  const observer = new MutationObserver(() => {
-    debouncedInit();
-  });
-  if (document.body) {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    });
-  } else {
-    document.addEventListener("DOMContentLoaded", function () {
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-      });
-    });
   }
-})();
+  if (node.children.length === 0) {
+    if (trimmedText !== undefined && trimmedText.trim() !== "") {
+      const regex = /{{.*?}}/gm;
+      const found = node.textContent.match(regex);
+      if (found !== null) {
+        for (let i = 0; i < found.length; i++) {
+          const varName = found[i].replace(/[{}]/g, "").trim();
+          if (!parent.updateDict[varName]) {
+            parent.updateDict[varName] = [];
+          }
+          parent.updateDict[varName].push({
+            node: node,
+            updateType: "text",
+            baseValue: node.textContent,
+          });
+        }
+      }
+    }
+  }
+  for (let i = 0; i < node.children.length; i++) {
+    recursiveTraverse.call(this, node.children[i], parent);
+  }
+}
+function updateData(data) {
+  for (var key in data) {
+    if (this.updateDict[key]) {
+      this.updateDict[key].forEach((updateInfo) => {
+        if (updateInfo.updateType === "text") {
+          updateInfo.node.textContent = updateInfo.baseValue.replace(
+            /{{.*?}}/g,
+            data[key] || ""
+          );
+        } else if (updateInfo.updateType === "attribute") {
+          const attrName = updateInfo.attributeName;
+          // If baseValue is set, we need to merge the new value with the existing one
+          if (updateInfo.baseValue !== undefined) {
+            updateInfo.node.setAttribute(
+              updateInfo.attributeName,
+              updateInfo.baseValue.replace(/{{.*?}}/g, data[key] || "")
+            );
+          }
+        }
+      });
+    }
+  }
+}
+
+function handleOjoPrepare() {
+  var dataName = this.getAttribute("data-template");
+  var data;
+  if (dataName !== null) {
+    eval("data = " + dataName + ";");
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        let newNode = this.cloneNode(true);
+        newNode.setAttribute(
+          "data-template",
+          dataName + "[" + data.indexOf(item) + "]"
+        );
+        this.parentNode.appendChild(newNode);
+      });
+      this.remove();
+      document.dispatchEvent(new Event("oJoPrepare"));
+      return; // Don't continue if replaced by clones
+    }
+  }
+  this.handleRenderEvent();
+  this.prepareForUpdates();
+  if (typeof this.callUpdate === "function") {
+    this.callUpdate(dataName);
+  }
+}
 class template_0 extends HTMLDivElement {
   updater = null;
+  filename = "/template/bs-carousel-caption.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
+      }
+    }
+  }
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-carousel-caption.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -190,62 +213,53 @@ class template_0 extends HTMLDivElement {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
+  attributeChangedCallback(name, oldValue, newValue) {}
+  // there can be other element methods and properties
+}
+customElements.define("bs-carousel-caption", template_0, { extends: "div" });
+class template_1 extends HTMLDivElement {
+  updater = null;
+  filename = "/template/bs-carousel-container.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
       }
     }
   }
-  // there can be other element methods and properties
-}
-customElements.define("bs-carousel-caption", template_0, { extends: "div" });class template_1 extends HTMLDivElement {
-  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-carousel-container.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -270,62 +284,53 @@ customElements.define("bs-carousel-caption", template_0, { extends: "div" });cla
   };
 ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
+  attributeChangedCallback(name, oldValue, newValue) {}
+  // there can be other element methods and properties
+}
+customElements.define("bs-carousel-container", template_1, { extends: "div" });
+class template_2 extends HTMLDivElement {
+  updater = null;
+  filename = "/template/bs-carousel-item.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
       }
     }
   }
-  // there can be other element methods and properties
-}
-customElements.define("bs-carousel-container", template_1, { extends: "div" });class template_2 extends HTMLDivElement {
-  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-carousel-item.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -333,62 +338,53 @@ customElements.define("bs-carousel-container", template_1, { extends: "div" });c
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
+  attributeChangedCallback(name, oldValue, newValue) {}
+  // there can be other element methods and properties
+}
+customElements.define("bs-carousel-item", template_2, { extends: "div" });
+class template_3 extends HTMLDivElement {
+  updater = null;
+  filename = "/template/bs-container.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
       }
     }
   }
-  // there can be other element methods and properties
-}
-customElements.define("bs-carousel-item", template_2, { extends: "div" });class template_3 extends HTMLDivElement {
-  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-container.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -396,62 +392,53 @@ customElements.define("bs-carousel-item", template_2, { extends: "div" });class 
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
+  attributeChangedCallback(name, oldValue, newValue) {}
+  // there can be other element methods and properties
+}
+customElements.define("bs-container", template_3, { extends: "div" });
+class template_4 extends HTMLLIElement {
+  updater = null;
+  filename = "/template/bs-navbar-item.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
       }
     }
   }
-  // there can be other element methods and properties
-}
-customElements.define("bs-container", template_3, { extends: "div" });class template_4 extends HTMLLIElement {
-  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-navbar-item.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -459,62 +446,53 @@ customElements.define("bs-container", template_3, { extends: "div" });class temp
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
+  attributeChangedCallback(name, oldValue, newValue) {}
+  // there can be other element methods and properties
+}
+customElements.define("bs-navbar-item", template_4, { extends: "li" });
+class template_5 extends HTMLElement {
+  updater = null;
+  filename = "/template/bs-navbar.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
       }
     }
   }
-  // there can be other element methods and properties
-}
-customElements.define("bs-navbar-item", template_4, { extends: "li" });class template_5 extends HTMLElement {
-  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-navbar.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -522,62 +500,53 @@ customElements.define("bs-navbar-item", template_4, { extends: "li" });class tem
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
+  attributeChangedCallback(name, oldValue, newValue) {}
+  // there can be other element methods and properties
+}
+customElements.define("bs-navbar", template_5, { extends: "nav" });
+class template_6 extends HTMLElement {
+  updater = null;
+  filename = "/template/bs-section.html";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
       }
     }
   }
-  // there can be other element methods and properties
-}
-customElements.define("bs-navbar", template_5, { extends: "nav" });class template_6 extends HTMLElement {
-  updater = null;
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "/template/bs-section.html"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -585,47 +554,15 @@ customElements.define("bs-navbar", template_5, { extends: "nav" });class templat
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     ;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
-      }
-    }
-  }
+  attributeChangedCallback(name, oldValue, newValue) {}
   // there can be other element methods and properties
 }
 customElements.define("bs-section", template_6, { extends: "section" });

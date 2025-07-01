@@ -1,16 +1,38 @@
 class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
   updater = null;
+  filename = "FILENAME_REPLACE";
+
+  prepareForUpdates() {
+    this.updateDict = {};
+    this.recursiveTraverse(this, this);
+  }
+  callUpdate(dataName) {
+    var data;
+    if (dataName !== null) {
+      eval("data = " + dataName + ";");
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          this.updateData(item);
+        });
+      } else {
+        this.updateData(data);
+      }
+    }
+  }
   constructor() {
     // Always call super first in constructor
     super();
-    // Use helper.js handlers for render and initData
-    document.addEventListener(
-      "render",
-      handleRenderEvent(this, "FILENAME_REPLACE"),
-      { once: true }
-    );
-    document.addEventListener("initData", handleInitDataEvent(this), {
+    this.updateDict = {};
+    this.handleRenderEvent = handleRenderEvent.bind(this);
+    this.recursiveTraverse = recursiveTraverse.bind(this);
+    this.updateData = updateData.bind(this);
+    this.callUpdate = this.callUpdate.bind(this);
+    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
       once: true,
+    });
+    document.addEventListener("oJoUpdate", (event) => {
+      var dataName = this.getAttribute("data-template");
+      this.callUpdate(dataName);
     });
   }
 
@@ -18,46 +40,14 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
     CUSTOM_ONLOAD;
   }
-  connectedCallback() {
-    // Add updateData event listener when element is connected
-    this._updateDataHandler = function () {
-      // Get latest data from data-template attribute
-      const templateData = this.getAttribute("data-template");
-      let data;
-      if (templateData) {
-        if (templateData.trim().startsWith("{")) {
-          data = new Function(`return (${templateData})`)();
-        } else {
-          eval("data = " + templateData);
-        }
-      }
-      if (data != null && data != undefined) {
-        interpolateTemplate(this, data);
-      } else {
-      }
-    }.bind(this);
-    document.addEventListener("updateData", this._updateDataHandler);
-  }
+  connectedCallback() {}
 
-  disconnectedCallback() {
-    // Remove updateData event listener when element is disconnected
-    if (this._updateDataHandler) {
-      document.removeEventListener("updateData", this._updateDataHandler);
-    }
-    // browser calls this method when the element is removed from the document
-    // (can be called many times if an element is repeatedly added/removed)
-  }
+  disconnectedCallback() {}
 
   static get observedAttributes() {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue != newValue) {
-      if (updateEvent.eventPhase == 0) {
-        document.dispatchEvent(updateEvent);
-      }
-    }
-  }
+  attributeChangedCallback(name, oldValue, newValue) {}
   // there can be other element methods and properties
 }

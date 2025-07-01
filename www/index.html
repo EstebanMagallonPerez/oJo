@@ -32,36 +32,16 @@
         });
     </script>
     <script>
-        proxyMap = {};
-        objToObserve = [];
-        // WatchedObject class: Proxy-based object with callback on value change
-        class WatchedObject {
-            constructor(obj,) {
-                var proxy = new Proxy(obj, {
-                    set(target, prop, value, receiver) {
-                        const oldVal = target[prop];
-                        target[prop] = value;
-                        if (oldVal !== value) {
-                            document.dispatchEvent(new Event("updateData"));
-                        }
-                        return value;
-                    }
-                });
-                return proxy;
-            }
-        }
-
-        // Example usage:
         const n1 = new WatchedObject({ link: "#about-section", title: "About" });
         const n2 = new WatchedObject({ link: "#features-section", title: "Features" });
-        navbarData = [n1, n2];
+        navbarData = [n1, n2, n2, n2];
+        const navbar = new WatchedObject({ link: "#", name: "oJo" });
     </script>
 
 </head>
 
 <body>
-    <!-- Floating Navbar using custom elements -->
-    <nav is="bs-navbar" class="navbar fixed-top bg-white shadow-sm">
+    <nav is="bs-navbar" class="navbar fixed-top bg-white shadow-sm" data-template="navbar">
         <li is="bs-navbar-item" data-template='navbarData'>
         </li>
     </nav>
@@ -147,6 +127,29 @@
                 <p class="text-muted">The above single line of HTML will be expanded at runtime into a full Bootstrap
                     carousel with all nested elements rendered and data applied, thanks to the oJo framework's template
                     system.</p>
+                <h4 class="mt-4">About WatchedObject and Live Data Binding</h4>
+                <p>
+                    <strong>WatchedObject</strong> is a special JavaScript helper that lets you create objects whose
+                    properties are automatically observed for changes. When you use a <code>WatchedObject</code> as the
+                    data source for a component (by passing it to <code>data-template</code>), any changes you make to
+                    its properties in JavaScript will automatically update the corresponding element in the UI—no manual
+                    refresh or re-render is needed.
+                </p>
+                <ul>
+                    <li>Just create your data as <code>new WatchedObject({...})</code> and use it in your template.</li>
+                    <li>When you change a property (e.g. <code>myObj.title = 'New Title'</code>), the UI updates
+                        instantly.</li>
+                    <li>This enables true two-way data binding between your JavaScript and your HTML templates.</li>
+                </ul>
+                <h5 class="mt-3">Example: Live Data Binding</h5>
+                <pre><code>const navData = new WatchedObject({ title: 'Home', link: '#' });
+// ...
+// In your HTML:
+// <li is="bs-navbar-item" data-template="navData"></li>
+// ...
+// Later in JS:
+navData.title = 'Dashboard'; // The navbar item updates automatically!
+</code></pre>
             </div>
         </div>
     </section>

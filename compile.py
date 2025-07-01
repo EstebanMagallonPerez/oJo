@@ -156,7 +156,7 @@ for filename in filenames:
     component_text = component_text.replace("HTML_ELEMENT_TYPE", htmlElement)
     
     component_text += (
-        f'customElements.define("{filename.replace(".html", "")}", template_{count}, {{ extends: "{parser.first_tag}" }});'
+        f'customElements.define("{filename.replace(".html", "")}", template_{count}, {{ extends: "{parser.first_tag}" }});\n'
     )
 
     # Extract <script> content

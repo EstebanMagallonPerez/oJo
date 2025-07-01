@@ -57,6 +57,25 @@ A simple, declarative frontend framework using HTML templates and custom element
 
 The above single line of HTML will be expanded at runtime into a full Bootstrap carousel with all nested elements rendered and data applied, thanks to the oJo framework's template system.
 
+## Live Data Binding with WatchedObject
+
+The oJo framework includes a special helper called `WatchedObject` for automatic, reactive data binding:
+
+- Create your data as a `WatchedObject`:
+  ```js
+  const navData = new WatchedObject({ title: "Home", link: "#" });
+  ```
+- Use it in your template:
+  ```html
+  <li is="bs-navbar-item" data-template="navData"></li>
+  ```
+- When you change a property in JavaScript, the UI updates instantly:
+  ```js
+  navData.title = "Dashboard"; // The navbar item updates automatically!
+  ```
+
+This enables true two-way data binding between your JavaScript and your HTML templates. Any changes to a `WatchedObject`'s properties will automatically update the corresponding elements in the UI—no manual refresh or re-render is needed.
+
 ## Features
 
 - Component-based UI with reusable HTML templates

@@ -1,54 +1,15 @@
-const renderEvent = new Event("render");
-const updateEvent = new Event("updateData");
-const initEvent = new Event("initData");
-storedTemplates = {};
-proxyBackedVariables = {};
-
-document.addEventListener("DOMContentLoaded", function () {
-  document.dispatchEvent(renderEvent);
+const updateEvent = new Event("oJoUpdate");
+document.addEventListener("ojoUpdate", () => {
+  console.log("ojoUpdate event triggered");
+});
+document.addEventListener("oJoPrepare", () => {
+  console.log("oJoPrepare event triggered");
+});
+document.addEventListener("DOMContentLoaded", () => {
+  document.dispatchEvent(new Event("oJoPrepare"));
 });
 
-function interpolateTemplate(element, data) {
-  // Replace placeholders in attributes
-  for (let attr of Array.from(element.attributes)) {
-    Object.keys(data).forEach((key) => {
-      element.setAttribute(
-        attr.name,
-        attr.value.replaceAll("{{" + key + "}}", data[key])
-      );
-    });
-  }
-  nodeList = [];
-  [...element.childNodes].forEach((node) => {
-    if (
-      node.innerHTML !== undefined &&
-      node.innerHTML !== null &&
-      node.innerHTML.trim() !== ""
-    ) {
-      Object.keys(data).forEach((key) => {
-        if (node.innerHTML.includes("{{" + key + "}}")) {
-          nodeList.push("{{" + key + "}}");
-        }
-        node.innerHTML = node.innerHTML.replaceAll(
-          "{{" + key + "}}",
-          "<span data-reference='" + key + "'>" + data[key] + "</span>"
-        );
-      });
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      nodeList = interpolateTemplate(node, data);
-      console.log("nodeList1 is:", nodeList);
-    }
-  });
-  nodeList.push("");
-  nodeList = nodeList.filter(function (element) {
-    return element !== undefined;
-  });
-  const stringToAdd = element.tagName + ">";
-
-  nodeList = nodeList.map((element) => stringToAdd + element);
-  return nodeList;
-}
-
+storedTemplates = {};
 function getTemplate(fileName) {
   if (Object.hasOwn(storedTemplates, fileName) == false) {
     var xmlHttp = new XMLHttpRequest();
@@ -59,6 +20,28 @@ function getTemplate(fileName) {
     storedTemplates[fileName] = res;
   }
   return storedTemplates[fileName].cloneNode(true);
+}
+class WatchedObject {
+  constructor(obj) {
+    var proxy = new Proxy(obj, {
+      set(target, prop, value, receiver) {
+        const oldVal = target[prop];
+        target[prop] = value;
+        if (oldVal !== value) {
+          document.dispatchEvent(new Event("oJoUpdate"));
+        }
+        return value;
+      },
+    });
+    return proxy;
+  }
+}
+
+function htmlToElement(html) {
+  var template = document.createElement("template");
+  html = html.trim(); // Never return a text node of whitespace as the result
+  template.innerHTML = html;
+  return template.content.firstChild;
 }
 
 function mergeAttributes(fromNode, toNode) {
@@ -75,98 +58,116 @@ function mergeAttributes(fromNode, toNode) {
   }
 }
 
-function htmlToElement(html) {
-  var template = document.createElement("template");
-  html = html.trim(); // Never return a text node of whitespace as the result
-  template.innerHTML = html;
-  return template.content.firstChild;
-}
-
-// Handler for 'render' event for custom elements
-function handleRenderEvent(self, templateName) {
-  // this function handles moving the template from the file system to the DOM
-  // and merging attributes from the template to the custom element
-  return function () {
-    var template = getTemplate(templateName);
-    // Save the original template HTML for future updates (before any interpolation)
-    if (!self._originalTemplateHTML) {
-      self._originalTemplateHTML = template.innerHTML;
-    }
-    mergeAttributes(template, self);
-    if (template.getElementsByTagName("slot").length > 0) {
-      var slot = template.getElementsByTagName("slot")[0].parentNode;
-      template.getElementsByTagName("slot")[0].remove();
-      Array.from(self.children).forEach((child) => {
-        slot.appendChild(child);
-      });
-    }
-    Array.from(template.children).forEach((child) => {
-      self.appendChild(child);
+function handleRenderEvent() {
+  var template = getTemplate(this.filename);
+  mergeAttributes(template, this);
+  if (template.getElementsByTagName("slot").length > 0) {
+    var slot = template.getElementsByTagName("slot")[0].parentNode;
+    template.getElementsByTagName("slot")[0].remove();
+    Array.from(this.children).forEach((child) => {
+      slot.appendChild(child);
     });
-    if (typeof self.customOnload === "function") {
-      self.customOnload();
-    }
-  };
+  }
+  Array.from(template.children).forEach((child) => {
+    this.appendChild(child);
+  });
+  if (typeof this.customOnload === "function") {
+    this.customOnload();
+  }
 }
 
-// Handler for 'initData' event for custom elements
-function handleInitDataEvent(self) {
-  return function () {
-    const templateData = self.getAttribute("data-template");
-    var data;
-    if (templateData) {
-      if (templateData.trim().startsWith("{")) {
-        data = new Function(`return (${templateData})`)(); // safe-ish eval
-      } else {
-        eval("data = " + templateData);
-        for (var i = 0; i < data.length; i++) {
-          let tempNode = self.cloneNode(true);
-          tempNode.setAttribute("data-template", templateData + "[" + i + "]");
-          self.insertAdjacentElement("beforebegin", tempNode);
-        }
-        if (data.length > 1) {
-          self.remove();
+function recursiveTraverse(node, parent) {
+  let trimmedText = node.textContent.trim();
+  // Check for attributes with {{varName}} syntax
+  if (node.hasAttributes()) {
+    for (let attr of node.attributes) {
+      const regex = /{{.*?}}/gm;
+      const found = attr.value.match(regex);
+      if (found !== null) {
+        for (let i = 0; i < found.length; i++) {
+          const varName = found[i].replace(/[{}]/g, "").trim();
+          if (!parent.updateDict[varName]) {
+            parent.updateDict[varName] = [];
+          }
+          parent.updateDict[varName].push({
+            node: node,
+            attributeName: attr.name,
+            baseValue: attr.value,
+            updateType: "attribute",
+          });
         }
       }
     }
-    if (data != null && data != undefined) {
-      findList = interpolateTemplate(self, data);
-      console.log("findList is:", findList);
-    }
-  };
-}
-
-// Debounce utility
-function debounce(fn, delay) {
-  let timer = null;
-  return function (...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
-
-// MutationObserver to debounce and dispatch initData after DOM settles
-(function setupInitDataMutationObserver() {
-  const DEBOUNCE_DELAY = 10; // ms
-  const debouncedInit = debounce(() => {
-    document.dispatchEvent(initEvent);
-  }, DEBOUNCE_DELAY);
-  const observer = new MutationObserver(() => {
-    debouncedInit();
-  });
-  if (document.body) {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    });
-  } else {
-    document.addEventListener("DOMContentLoaded", function () {
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-      });
-    });
   }
-})();
+  if (node.children.length === 0) {
+    if (trimmedText !== undefined && trimmedText.trim() !== "") {
+      const regex = /{{.*?}}/gm;
+      const found = node.textContent.match(regex);
+      if (found !== null) {
+        for (let i = 0; i < found.length; i++) {
+          const varName = found[i].replace(/[{}]/g, "").trim();
+          if (!parent.updateDict[varName]) {
+            parent.updateDict[varName] = [];
+          }
+          parent.updateDict[varName].push({
+            node: node,
+            updateType: "text",
+            baseValue: node.textContent,
+          });
+        }
+      }
+    }
+  }
+  for (let i = 0; i < node.children.length; i++) {
+    recursiveTraverse.call(this, node.children[i], parent);
+  }
+}
+function updateData(data) {
+  for (var key in data) {
+    if (this.updateDict[key]) {
+      this.updateDict[key].forEach((updateInfo) => {
+        if (updateInfo.updateType === "text") {
+          updateInfo.node.textContent = updateInfo.baseValue.replace(
+            /{{.*?}}/g,
+            data[key] || ""
+          );
+        } else if (updateInfo.updateType === "attribute") {
+          const attrName = updateInfo.attributeName;
+          // If baseValue is set, we need to merge the new value with the existing one
+          if (updateInfo.baseValue !== undefined) {
+            updateInfo.node.setAttribute(
+              updateInfo.attributeName,
+              updateInfo.baseValue.replace(/{{.*?}}/g, data[key] || "")
+            );
+          }
+        }
+      });
+    }
+  }
+}
+
+function handleOjoPrepare() {
+  var dataName = this.getAttribute("data-template");
+  var data;
+  if (dataName !== null) {
+    eval("data = " + dataName + ";");
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        let newNode = this.cloneNode(true);
+        newNode.setAttribute(
+          "data-template",
+          dataName + "[" + data.indexOf(item) + "]"
+        );
+        this.parentNode.appendChild(newNode);
+      });
+      this.remove();
+      document.dispatchEvent(new Event("oJoPrepare"));
+      return; // Don't continue if replaced by clones
+    }
+  }
+  this.handleRenderEvent();
+  this.prepareForUpdates();
+  if (typeof this.callUpdate === "function") {
+    this.callUpdate(dataName);
+  }
+}
