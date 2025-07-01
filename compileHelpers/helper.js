@@ -18,6 +18,7 @@ function interpolateTemplate(element, data) {
       );
     });
   }
+  nodeList = [];
   [...element.childNodes].forEach((node) => {
     if (
       node.innerHTML !== undefined &&
@@ -25,15 +26,27 @@ function interpolateTemplate(element, data) {
       node.innerHTML.trim() !== ""
     ) {
       Object.keys(data).forEach((key) => {
+        if (node.innerHTML.includes("{{" + key + "}}")) {
+          nodeList.push("{{" + key + "}}");
+        }
         node.innerHTML = node.innerHTML.replaceAll(
           "{{" + key + "}}",
           "<span data-reference='" + key + "'>" + data[key] + "</span>"
         );
       });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
-      interpolateTemplate(node, data);
+      nodeList = interpolateTemplate(node, data);
+      console.log("nodeList1 is:", nodeList);
     }
   });
+  nodeList.push("");
+  nodeList = nodeList.filter(function (element) {
+    return element !== undefined;
+  });
+  const stringToAdd = element.tagName + ">";
+
+  nodeList = nodeList.map((element) => stringToAdd + element);
+  return nodeList;
 }
 
 function getTemplate(fileName) {
@@ -117,7 +130,8 @@ function handleInitDataEvent(self) {
       }
     }
     if (data != null && data != undefined) {
-      interpolateTemplate(self, data);
+      findList = interpolateTemplate(self, data);
+      console.log("findList is:", findList);
     }
   };
 }
@@ -135,9 +149,6 @@ function debounce(fn, delay) {
 (function setupInitDataMutationObserver() {
   const DEBOUNCE_DELAY = 10; // ms
   const debouncedInit = debounce(() => {
-    console.log(
-      "[LOG] Dispatching debounced initData event after DOM mutation"
-    );
     document.dispatchEvent(initEvent);
   }, DEBOUNCE_DELAY);
   const observer = new MutationObserver(() => {

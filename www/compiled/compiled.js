@@ -18,6 +18,7 @@ function interpolateTemplate(element, data) {
       );
     });
   }
+  nodeList = [];
   [...element.childNodes].forEach((node) => {
     if (
       node.innerHTML !== undefined &&
@@ -25,15 +26,27 @@ function interpolateTemplate(element, data) {
       node.innerHTML.trim() !== ""
     ) {
       Object.keys(data).forEach((key) => {
+        if (node.innerHTML.includes("{{" + key + "}}")) {
+          nodeList.push("{{" + key + "}}");
+        }
         node.innerHTML = node.innerHTML.replaceAll(
           "{{" + key + "}}",
           "<span data-reference='" + key + "'>" + data[key] + "</span>"
         );
       });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
-      interpolateTemplate(node, data);
+      nodeList = interpolateTemplate(node, data);
+      console.log("nodeList1 is:", nodeList);
     }
   });
+  nodeList.push("");
+  nodeList = nodeList.filter(function (element) {
+    return element !== undefined;
+  });
+  const stringToAdd = element.tagName + ">";
+
+  nodeList = nodeList.map((element) => stringToAdd + element);
+  return nodeList;
 }
 
 function getTemplate(fileName) {
@@ -117,7 +130,8 @@ function handleInitDataEvent(self) {
       }
     }
     if (data != null && data != undefined) {
-      interpolateTemplate(self, data);
+      findList = interpolateTemplate(self, data);
+      console.log("findList is:", findList);
     }
   };
 }
@@ -135,9 +149,6 @@ function debounce(fn, delay) {
 (function setupInitDataMutationObserver() {
   const DEBOUNCE_DELAY = 10; // ms
   const debouncedInit = debounce(() => {
-    console.log(
-      "[LOG] Dispatching debounced initData event after DOM mutation"
-    );
     document.dispatchEvent(initEvent);
   }, DEBOUNCE_DELAY);
   const observer = new MutationObserver(() => {
@@ -182,7 +193,6 @@ class template_0 extends HTMLDivElement {
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -193,11 +203,9 @@ class template_0 extends HTMLDivElement {
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);
@@ -265,7 +273,6 @@ customElements.define("bs-carousel-caption", template_0, { extends: "div" });cla
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -276,11 +283,9 @@ customElements.define("bs-carousel-caption", template_0, { extends: "div" });cla
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);
@@ -331,7 +336,6 @@ customElements.define("bs-carousel-container", template_1, { extends: "div" });c
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -342,11 +346,9 @@ customElements.define("bs-carousel-container", template_1, { extends: "div" });c
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);
@@ -397,7 +399,6 @@ customElements.define("bs-carousel-item", template_2, { extends: "div" });class 
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -408,11 +409,9 @@ customElements.define("bs-carousel-item", template_2, { extends: "div" });class 
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);
@@ -463,7 +462,6 @@ customElements.define("bs-container", template_3, { extends: "div" });class temp
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -474,11 +472,9 @@ customElements.define("bs-container", template_3, { extends: "div" });class temp
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);
@@ -529,7 +525,6 @@ customElements.define("bs-navbar-item", template_4, { extends: "li" });class tem
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -540,11 +535,9 @@ customElements.define("bs-navbar-item", template_4, { extends: "li" });class tem
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);
@@ -595,7 +588,6 @@ customElements.define("bs-navbar", template_5, { extends: "nav" });class templat
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -606,11 +598,9 @@ customElements.define("bs-navbar", template_5, { extends: "nav" });class templat
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);

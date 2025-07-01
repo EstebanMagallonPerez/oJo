@@ -21,7 +21,6 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
   connectedCallback() {
     // Add updateData event listener when element is connected
     this._updateDataHandler = function () {
-      console.log("----------------Update Data Handler Called----------------");
       // Get latest data from data-template attribute
       const templateData = this.getAttribute("data-template");
       let data;
@@ -32,11 +31,9 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
           eval("data = " + templateData);
         }
       }
-      console.log("data is:", data);
       if (data != null && data != undefined) {
         interpolateTemplate(this, data);
       } else {
-        console.log("[updateDataHandler] No data found to update for", this);
       }
     }.bind(this);
     document.addEventListener("updateData", this._updateDataHandler);

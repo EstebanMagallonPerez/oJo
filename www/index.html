@@ -43,12 +43,10 @@
                         target[prop] = value;
                         if (oldVal !== value) {
                             document.dispatchEvent(new Event("updateData"));
-                            console.log("change", prop, oldVal, value);
                         }
                         return value;
                     }
                 });
-                objToObserve.push(proxy);
                 return proxy;
             }
         }
