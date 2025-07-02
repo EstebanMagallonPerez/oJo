@@ -24,6 +24,7 @@
                     const target = document.getElementById(targetId);
                     if (target) {
                         e.preventDefault();
+                        history.pushState(null, null, '#' + targetId);
                         const top = target.getBoundingClientRect().top + window.scrollY - offset;
                         window.scrollTo({ top, behavior: 'smooth' });
                     }
@@ -32,42 +33,42 @@
         });
     </script>
     <script>
-        const n1 = new WatchedObject({ link: "#about-section", title: "About" });
-        const n2 = new WatchedObject({ link: "#features-section", title: "Features" });
-        navbarData = [n1, n2, n2, n2];
+        const s1 = new WatchedObject({ link: "#intro-section", title: "Intro" });
+        const s2 = new WatchedObject({ link: "#examples-section", title: "Examples" });
+        const s3 = new WatchedObject({ link: "#watchedobject-section", title: "WatchedObject" });
+        const s4 = new WatchedObject({ link: "#template-format-section", title: "File Format" });
+        navbarData = [s1, s2, s3, s4];
+        carouselData = [
+            { isActive: 'active', altText: 'First slide', captionTitle: 'Welcome to oJo', captionText: 'A custom frontend framework to allow for simple creation of templates!' },
+            { isActive: '', altText: 'Second slide', captionTitle: 'Reusable Components', captionText: 'Build UIs with HTML templates and custom elements.' }
+        ];
+        carouselContent = [
+            { captionTitle: 'Welcome to oJo', captionText: 'A custom frontend framework to allow for simple creation of templates!', altText: 'First slide' },
+            { captionTitle: 'Reusable Components', captionText: 'Build UIs with HTML templates and custom elements.', altText: 'Second slide' }
+        ];
         const navbar = new WatchedObject({ link: "#", name: "oJo" });
     </script>
-
 </head>
 
 <body>
+    <!-- Navbar -->
     <nav is="bs-navbar" class="navbar fixed-top bg-white shadow-sm" data-template="navbar">
-        <li is="bs-navbar-item" data-template='navbarData'>
-        </li>
+        <li is="bs-navbar-item" data-template='navbarData'></li>
     </nav>
+
     <!-- Carousel Section -->
-    <section is="bs-section" id="carousel-section">
-        <div is="bs-carousel-container">
-            <div is="bs-carousel-item" data-template="{isActive:'active',altText:'First slide'}">
-                <div is="bs-carousel-caption"
-                    data-template="{captionTitle:'Welcome to oJo',captionText:'A custom frontend framework using Bootstrap templates!'}">
-                </div>
-            </div>
-            <div is="bs-carousel-item" data-template="{isActive:'',altText:'Second slide'}">
-                <div is="bs-carousel-caption"
-                    data-template="{captionTitle:'Reusable Components',captionText:'Build UIs with HTML templates and custom elements.'}">
-                </div>
-            </div>
-            <div is="bs-carousel-item" data-template="{isActive:'',altText:'Third slide'}">
-                <div is="bs-carousel-caption"
-                    data-template="{captionTitle:'Powered by Bootstrap',captionText:'Enjoy all the power of Bootstrap 5 with your own syntax.'}">
-                </div>
+    <div is="bs-carousel-container">
+        <div is="bs-carousel-item" data-template="carouselData[0]">
+            <div is="bs-carousel-caption" data-template="carouselContent[0]">
             </div>
         </div>
-    </section>
-
-    <!-- About Section -->
-    <section is="bs-section" id="about-section">
+        <div is="bs-carousel-item" data-template="carouselData[1]">
+            <div is="bs-carousel-caption" data-template="carouselContent[1]">
+            </div>
+        </div>
+    </div>
+    <!-- Intro Section -->
+    <section is="bs-section" id="intro-section">
         <div class="row">
             <div class="col-md-8 mx-auto">
                 <h2>About the oJo Frontend Framework</h2>
@@ -75,7 +76,7 @@
                     This project uses a custom frontend framework oJo that
                     allows you to build web UIs using HTML templates and custom elements. Instead of writing
                     JavaScript-heavy code, you define your UI in HTML and use special <code>is="component-name"</code>
-                    attributes to render Bootstrap-based components.
+                    attributes to render components.
                 </p>
                 <ul>
                     <li>Templates are stored in <code>www/template/</code> as HTML files.</li>
@@ -83,7 +84,6 @@
                         <code>bs-container</code> are rendered dynamically.
                     </li>
                     <li>Data can be passed to components using the <code>data-template</code> attribute.</li>
-                    <li>All components are styled with Bootstrap 5 for a modern look and feel.</li>
                     <li class="mt-2"><strong>Note:</strong> Template and custom element names must be in the format
                         <code>somestring-somestring</code> (contain a hyphen <code>-</code>). This is required by the
                         browser's custom elements specification and is necessary for your components to work correctly.
@@ -92,6 +92,15 @@
                         generate the JavaScript (<code>compiled/compiled.js</code>) that enables your custom template
                         elements before starting the server.</li>
                 </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section is="bs-section" id="examples-section">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <h2>Template Usage Examples</h2>
                 <h4 class="mt-4">Example: Simple Template Usage</h4>
                 <pre><code>&lt;div is="bs-container"&gt;
     &lt;h1&gt;Hello World!&lt;/h1&gt;
@@ -124,10 +133,18 @@
     &lt;/div&gt;
 &lt;/div&gt;
 </code></pre>
-                <p class="text-muted">The above single line of HTML will be expanded at runtime into a full Bootstrap
+                <p class="text-muted">The above single line of HTML will be expanded at runtime into a full
                     carousel with all nested elements rendered and data applied, thanks to the oJo framework's template
                     system.</p>
-                <h4 class="mt-4">About WatchedObject and Live Data Binding</h4>
+            </div>
+        </div>
+    </section>
+
+    <!-- WatchedObject Section -->
+    <section is="bs-section" id="watchedobject-section">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <h2>About WatchedObject and Live Data Binding</h2>
                 <p>
                     <strong>WatchedObject</strong> is a special JavaScript helper that lets you create objects whose
                     properties are automatically observed for changes. When you use a <code>WatchedObject</code> as the
@@ -145,7 +162,7 @@
                 <pre><code>const navData = new WatchedObject({ title: 'Home', link: '#' });
 // ...
 // In your HTML:
-// <li is="bs-navbar-item" data-template="navData"></li>
+ &lt;li is="bs-navbar-item" data-template="navData">&lt;/li>
 // ...
 // Later in JS:
 navData.title = 'Dashboard'; // The navbar item updates automatically!
@@ -154,20 +171,67 @@ navData.title = 'Dashboard'; // The navbar item updates automatically!
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section is="bs-section" id="features-section" class="container">
+    <!-- Template File Format Section -->
+    <section is="bs-section" id="template-format-section">
         <div class="row">
-            <div class="col-md-4">
-                <h3>Component-based</h3>
-                <p>Build your UI with reusable HTML templates and custom elements.</p>
-            </div>
-            <div class="col-md-4">
-                <h3>Bootstrap Integration</h3>
-                <p>Leverage the full power of Bootstrap 5 for responsive, beautiful layouts.</p>
-            </div>
-            <div class="col-md-4">
-                <h3>Declarative Syntax</h3>
-                <p>Describe your UI in HTML, not JavaScript. Pass data easily with <code>data-template</code>.</p>
+            <div class="col-md-8 mx-auto">
+                <h2>oJo Template File Format</h2>
+                <p>
+                    <strong>oJo template files</strong> are plain HTML files stored in <code>www/template/</code>. Each
+                    file defines the structure for a custom element, using standard HTML and <code>&lt;slot&gt;</code>
+                    for content insertion. You can use <code>{{variable}}</code> placeholders anywhere in the template
+                    to inject data from your JavaScript objects.
+                </p>
+                <ul>
+                    <li><strong>File location:</strong> <code>www/template/your-component.html</code></li>
+                    <li><strong>Placeholders:</strong> Use <code>{{variable}}</code> to mark where data should be
+                        inserted.</li>
+                    <li><strong>Slots:</strong> Use <code>&lt;slot&gt;</code> to allow child content to be inserted.
+                    </li>
+                    <li><strong>Custom attributes:</strong> You can use <code>data-template</code> to pass data to the
+                        template.</li>
+                </ul>
+                <h5 class="mt-3">Example: Simple Template File</h5>
+                <pre><code>&lt;div class="container"&gt;
+    &lt;h1&gt;{{title}}&lt;/h1&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+&lt;/div&gt;
+</code></pre>
+                <p class="text-muted">This template will render a Bootstrap container with a dynamic title and any child
+                    content placed inside the custom element.</p>
+                <h2>How &lt;style&gt; and &lt;script&gt; in Templates Work</h2>
+                <p>
+                    When you include <code>&lt;style&gt;</code> or <code>&lt;script&gt;</code> tags in your template
+                    files, the build process will automatically extract them and compile their contents into the
+                    appropriate output files:
+                </p>
+                <ul>
+                    <li><strong>&lt;style&gt; blocks</strong> from all templates are combined and written to
+                        <code>www/compiled/style.css</code>. This ensures all component styles are loaded globally and
+                        only once.
+                    </li>
+                    <li><strong>&lt;script&gt; blocks</strong> from all templates are combined and written to
+                        <code>www/compiled/compiled.js</code>. This allows you to define component-specific JavaScript
+                        that is loaded with your app.
+                    </li>
+                    <li>Neither <code>&lt;style&gt;</code> nor <code>&lt;script&gt;</code> tags are included in the
+                        final rendered HTML at runtime—they are extracted at build time for performance and
+                        maintainability.</li>
+                </ul>
+                <h5 class="mt-3">Example: Template with &lt;style&gt; and &lt;script&gt;</h5>
+                <pre><code>&lt;div class="my-widget"&gt;
+    &lt;h2&gt;{{title}}&lt;/h2&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+&lt;/div&gt;
+&lt;style&gt;
+.my-widget { color: purple; }
+&lt;/style&gt;
+&lt;script&gt;
+console.log('Widget loaded!');
+&lt;/script&gt;
+</code></pre>
+                <p class="text-muted">When you run <code>python compile.py</code>, the CSS and JS above will be
+                    extracted and bundled into the global compiled files, not left in the HTML.</p>
             </div>
         </div>
     </section>

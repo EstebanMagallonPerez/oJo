@@ -32,7 +32,15 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 

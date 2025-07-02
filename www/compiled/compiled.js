@@ -1,10 +1,4 @@
 const updateEvent = new Event("oJoUpdate");
-document.addEventListener("ojoUpdate", () => {
-  console.log("ojoUpdate event triggered");
-});
-document.addEventListener("oJoPrepare", () => {
-  console.log("oJoPrepare event triggered");
-});
 document.addEventListener("DOMContentLoaded", () => {
   document.dispatchEvent(new Event("oJoPrepare"));
 });
@@ -28,7 +22,10 @@ class WatchedObject {
         const oldVal = target[prop];
         target[prop] = value;
         if (oldVal !== value) {
-          document.dispatchEvent(new Event("oJoUpdate"));
+          // Dispatch oJoUpdate with a reference to the object (or a unique key if needed)
+          document.dispatchEvent(
+            new CustomEvent("oJoUpdate", { detail: { target: receiver } })
+          );
         }
         return value;
       },
@@ -68,11 +65,12 @@ function handleRenderEvent() {
       slot.appendChild(child);
     });
   }
-  Array.from(template.children).forEach((child) => {
-    this.appendChild(child);
-  });
-  if (typeof this.customOnload === "function") {
-    this.customOnload();
+  if (template.children.length == 0) {
+    this.innerHTML = template.innerHTML;
+  } else {
+    Array.from(template.children).forEach((child) => {
+      this.appendChild(child);
+    });
   }
 }
 
@@ -132,8 +130,6 @@ function updateData(data) {
             data[key] || ""
           );
         } else if (updateInfo.updateType === "attribute") {
-          const attrName = updateInfo.attributeName;
-          // If baseValue is set, we need to merge the new value with the existing one
           if (updateInfo.baseValue !== undefined) {
             updateInfo.node.setAttribute(
               updateInfo.attributeName,
@@ -143,6 +139,24 @@ function updateData(data) {
         }
       });
     }
+  }
+  // After all updates, replace any remaining handlebars (e.g., {{id}}) with ""
+  for (let key in this.updateDict) {
+    this.updateDict[key].forEach((updateInfo) => {
+      if (updateInfo.updateType === "text") {
+        updateInfo.node.textContent = updateInfo.node.textContent.replace(
+          /{{.*?}}/g,
+          ""
+        );
+      } else if (updateInfo.updateType === "attribute") {
+        updateInfo.node.setAttribute(
+          updateInfo.attributeName,
+          updateInfo.node
+            .getAttribute(updateInfo.attributeName)
+            .replace(/{{.*?}}/g, "")
+        );
+      }
+    });
   }
 }
 
@@ -170,6 +184,7 @@ function handleOjoPrepare() {
   if (typeof this.callUpdate === "function") {
     this.callUpdate(dataName);
   }
+  this.customOnload();
 }
 class template_0 extends HTMLDivElement {
   updater = null;
@@ -205,7 +220,15 @@ class template_0 extends HTMLDivElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 
@@ -259,7 +282,15 @@ class template_1 extends HTMLDivElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 
@@ -330,7 +361,15 @@ class template_2 extends HTMLDivElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 
@@ -384,7 +423,15 @@ class template_3 extends HTMLDivElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 
@@ -438,7 +485,15 @@ class template_4 extends HTMLLIElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 
@@ -492,7 +547,15 @@ class template_5 extends HTMLElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 
@@ -546,7 +609,15 @@ class template_6 extends HTMLElement {
     });
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
-      this.callUpdate(dataName);
+      var data = null;
+      eval("data = " + dataName);
+      if (event.detail !== undefined) {
+        if (event.detail.target === data) {
+          this.callUpdate(dataName);
+        }
+      } else {
+        this.callUpdate(dataName);
+      }
     });
   }
 

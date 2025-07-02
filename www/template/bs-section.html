@@ -3,3 +3,17 @@
         <slot></slot>
     </div>
 </section>
+<style>
+    section[is],
+    section.bs-section {
+        background: #fff;
+        transition: background 0.3s;
+        padding-top: 2.5rem;
+        padding-bottom: 2.5rem;
+    }
+
+    section[is]:nth-of-type(even),
+    section.bs-section:nth-of-type(even) {
+        background: #f8f9fa;
+    }
+</style>
