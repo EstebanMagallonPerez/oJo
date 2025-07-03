@@ -160,6 +160,12 @@ function updateData(data) {
 function handleOjoPrepare() {
   var dataName = this.getAttribute("data-template");
   var data;
+  let temp = this;
+  while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+    dataName = temp.getAttribute("data-template");
+    temp = temp.parentNode;
+  }
+
   if (dataName !== null) {
     eval("data = " + dataName + ";");
     if (Array.isArray(data)) {
@@ -214,6 +220,12 @@ class template_0 extends HTMLDivElement {
     setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
