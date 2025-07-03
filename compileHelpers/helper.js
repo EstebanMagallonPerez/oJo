@@ -1,7 +1,4 @@
 const updateEvent = new Event("oJoUpdate");
-document.addEventListener("DOMContentLoaded", () => {
-  document.dispatchEvent(new Event("oJoPrepare"));
-});
 
 storedTemplates = {};
 function getTemplate(fileName) {
@@ -163,6 +160,12 @@ function updateData(data) {
 function handleOjoPrepare() {
   var dataName = this.getAttribute("data-template");
   var data;
+  let temp = this;
+  while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+    dataName = temp.getAttribute("data-template");
+    temp = temp.parentNode;
+  }
+
   if (dataName !== null) {
     eval("data = " + dataName + ";");
     if (Array.isArray(data)) {
@@ -175,7 +178,6 @@ function handleOjoPrepare() {
         this.parentNode.appendChild(newNode);
       });
       this.remove();
-      document.dispatchEvent(new Event("oJoPrepare"));
       return; // Don't continue if replaced by clones
     }
   }

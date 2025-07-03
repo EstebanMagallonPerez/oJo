@@ -1,7 +1,4 @@
 const updateEvent = new Event("oJoUpdate");
-document.addEventListener("DOMContentLoaded", () => {
-  document.dispatchEvent(new Event("oJoPrepare"));
-});
 
 storedTemplates = {};
 function getTemplate(fileName) {
@@ -175,7 +172,6 @@ function handleOjoPrepare() {
         this.parentNode.appendChild(newNode);
       });
       this.remove();
-      document.dispatchEvent(new Event("oJoPrepare"));
       return; // Don't continue if replaced by clones
     }
   }
@@ -215,9 +211,7 @@ class template_0 extends HTMLDivElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
       var data = null;
@@ -234,7 +228,9 @@ class template_0 extends HTMLDivElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    ;
+    setTimeout(() => {
+      ;
+    }, 0);
   }
   connectedCallback() {}
 
@@ -277,11 +273,15 @@ class template_1 extends HTMLDivElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -296,7 +296,8 @@ class template_1 extends HTMLDivElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    
+    setTimeout(() => {
+      
   let id = this.getAttribute("id")
   let carouselItems = this.querySelectorAll("[is=bs-carousel-item]");
   var button = document.createElement("button")
@@ -313,7 +314,9 @@ class template_1 extends HTMLDivElement {
     tempButton.setAttribute("data-bs-target", id);
     one[0].appendChild(tempButton)
   };
+
 ;
+    }, 0);
   }
   connectedCallback() {}
 
@@ -356,11 +359,15 @@ class template_2 extends HTMLDivElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -375,7 +382,9 @@ class template_2 extends HTMLDivElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    ;
+    setTimeout(() => {
+      ;
+    }, 0);
   }
   connectedCallback() {}
 
@@ -418,11 +427,15 @@ class template_3 extends HTMLDivElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -437,7 +450,9 @@ class template_3 extends HTMLDivElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    ;
+    setTimeout(() => {
+      ;
+    }, 0);
   }
   connectedCallback() {}
 
@@ -480,11 +495,15 @@ class template_4 extends HTMLLIElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -499,7 +518,9 @@ class template_4 extends HTMLLIElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    ;
+    setTimeout(() => {
+      ;
+    }, 0);
   }
   connectedCallback() {}
 
@@ -542,11 +563,15 @@ class template_5 extends HTMLElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -561,7 +586,9 @@ class template_5 extends HTMLElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    ;
+    setTimeout(() => {
+      ;
+    }, 0);
   }
   connectedCallback() {}
 
@@ -604,11 +631,15 @@ class template_6 extends HTMLElement {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -623,7 +654,9 @@ class template_6 extends HTMLElement {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    ;
+    setTimeout(() => {
+      ;
+    }, 0);
   }
   connectedCallback() {}
 

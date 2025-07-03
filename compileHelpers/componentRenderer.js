@@ -27,11 +27,15 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
     this.recursiveTraverse = recursiveTraverse.bind(this);
     this.updateData = updateData.bind(this);
     this.callUpdate = this.callUpdate.bind(this);
-    document.addEventListener("oJoPrepare", handleOjoPrepare.bind(this), {
-      once: true,
-    });
+    setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
       var dataName = this.getAttribute("data-template");
+      let temp = this;
+      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+        dataName = temp.getAttribute("data-template");
+        temp = temp.parentNode;
+      }
+
       var data = null;
       eval("data = " + dataName);
       if (event.detail !== undefined) {
@@ -46,7 +50,9 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
 
   customOnload() {
     // No need to save _originalTemplateHTML here; it's now saved in handleRenderEvent
-    CUSTOM_ONLOAD;
+    setTimeout(() => {
+      CUSTOM_ONLOAD;
+    }, 0);
   }
   connectedCallback() {}
 

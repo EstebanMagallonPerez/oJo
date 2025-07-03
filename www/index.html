@@ -39,12 +39,8 @@
         const s4 = new WatchedObject({ link: "#template-format-section", title: "File Format" });
         navbarData = [s1, s2, s3, s4];
         carouselData = [
-            { isActive: 'active', altText: 'First slide', captionTitle: 'Welcome to oJo', captionText: 'A custom frontend framework to allow for simple creation of templates!' },
-            { isActive: '', altText: 'Second slide', captionTitle: 'Reusable Components', captionText: 'Build UIs with HTML templates and custom elements.' }
-        ];
-        carouselContent = [
-            { captionTitle: 'Welcome to oJo', captionText: 'A custom frontend framework to allow for simple creation of templates!', altText: 'First slide' },
-            { captionTitle: 'Reusable Components', captionText: 'Build UIs with HTML templates and custom elements.', altText: 'Second slide' }
+            new WatchedObject({ isActive: 'active', altText: 'First slide', captionTitle: 'Welcome to oJo', captionText: 'A custom frontend framework to allow for simple creation of templates!' }),
+            new WatchedObject({ isActive: '', altText: 'Second slide', captionTitle: 'Reusable Components', captionText: 'Build UIs with HTML templates and custom elements.' })
         ];
         const navbar = new WatchedObject({ link: "#", name: "oJo" });
     </script>
@@ -58,12 +54,8 @@
 
     <!-- Carousel Section -->
     <div is="bs-carousel-container">
-        <div is="bs-carousel-item" data-template="carouselData[0]">
-            <div is="bs-carousel-caption" data-template="carouselContent[0]">
-            </div>
-        </div>
-        <div is="bs-carousel-item" data-template="carouselData[1]">
-            <div is="bs-carousel-caption" data-template="carouselContent[1]">
+        <div is="bs-carousel-item" data-template="carouselData">
+            <div is="bs-carousel-caption">
             </div>
         </div>
     </div>
