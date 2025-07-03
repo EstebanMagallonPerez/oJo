@@ -7,6 +7,7 @@ oJo is a custom frontend framework that lets you build web UIs using HTML templa
 - Templates are stored in `www/template/` as HTML files.
 - Custom elements like `bs-navbar`, `bs-carousel-container`, and `bs-container` are rendered dynamically.
 - Data can be passed to components using the `data-template` attribute.
+  - If a custom element does not have a `data-template` attribute directly attached, it will automatically inherit the nearest parent node's `data-template` value. This allows for implicit data context propagation, making deeply nested templates easier to manage and reducing the need to redundantly specify `data-template` on every element. If you want a component to use a specific data context, simply add `data-template` to that element; otherwise, it will use the closest ancestor's value.
 - Template and custom element names must be in the format `somestring-somestring` (contain a hyphen `-`). This is required by the browser's custom elements specification.
 - **Build Step:** You must run `python compile.py` to generate the JavaScript (`compiled/compiled.js`) that enables your custom template elements before starting the server.
 
@@ -91,7 +92,7 @@ oJo template files are plain HTML files stored in `www/template/`. Each file def
 - **File location:** `www/template/your-component.html`
 - **Placeholders:** Use `{{variable}}` to mark where data should be inserted.
 - **Slots:** Use `<slot>` to allow child content to be inserted.
-- **Custom attributes:** You can use `data-template` to pass data to the template.
+- **Custom attributes:** You can use `data-template` to pass data to the template. If a template does not have a `data-template` attribute, it will inherit the value from the nearest parent node with a `data-template`.
 
 #### Example: Simple Template File
 
