@@ -1,0 +1,32 @@
+[
+  {
+    "taskName": "Write Documentation",
+    "description": "Complete the project README and API docs.",
+    "dueDate": "2025-07-10",
+    "status": "To do"
+  },
+  {
+    "taskName": "Implement Login",
+    "description": "Add authentication to the frontend.",
+    "dueDate": "2025-07-12",
+    "status": "Done"
+  },
+  {
+    "taskName": "Fix Carousel Bug",
+    "description": "Resolve image loading and aspect ratio issues.",
+    "dueDate": "2025-07-14",
+    "status": "Done"
+  },
+  {
+    "taskName": "Refactor Components",
+    "description": "Modularize and clean up custom elements.",
+    "dueDate": "2025-07-15",
+    "status": "Done"
+  },
+  {
+    "taskName": "Add Task Status",
+    "description": "Enable status dropdown and editing for tasks.",
+    "dueDate": "2025-07-18",
+    "status": "Done"
+  }
+]

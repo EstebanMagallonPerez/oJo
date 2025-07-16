@@ -29,15 +29,16 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
     this.callUpdate = this.callUpdate.bind(this);
     setTimeout(handleOjoPrepare.bind(this), 0);
     document.addEventListener("oJoUpdate", (event) => {
-      var dataName = this.getAttribute("data-template");
-      let temp = this;
-      while (dataName == undefined && temp != null && temp.tagName != "HTML") {
-        dataName = temp.getAttribute("data-template");
-        temp = temp.parentNode;
+      var [dataName, data] = resolveOjoData(this);
+      if (data == null) {
+        return;
       }
-
-      var data = null;
-      eval("data = " + dataName);
+      this.ojoData = data;
+      if (event.detail !== undefined) {
+        if (event.detail.target === this) {
+          this.callUpdate(dataName);
+        }
+      }
       if (event.detail !== undefined) {
         if (event.detail.target === data) {
           this.callUpdate(dataName);
@@ -62,6 +63,12 @@ class CLASSNAME_REPLACE extends HTML_ELEMENT_TYPE {
     return ["data-template"];
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {}
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue != null) {
+      document.dispatchEvent(
+        new CustomEvent("oJoUpdate", { detail: { target: this } })
+      );
+    }
+  }
   // there can be other element methods and properties
 }

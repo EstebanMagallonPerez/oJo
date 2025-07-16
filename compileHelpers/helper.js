@@ -1,5 +1,23 @@
+// Helper to resolve data from a data-template attribute, supporting inheritance
+function resolveOjoData(element) {
+  let dataName = element.getAttribute("data-template");
+  let data = null;
+  if (dataName == null) {
+    return [null, null];
+  }
+  if (dataName.trim()[0] == "{") {
+    data = JSON.parse(dataName);
+  } else {
+    let temp = element;
+    while (dataName == undefined && temp != null && temp.tagName != "HTML") {
+      dataName = temp.getAttribute("data-template");
+      temp = temp.parentNode;
+    }
+    eval("data = " + dataName);
+  }
+  return [dataName, data];
+}
 const updateEvent = new Event("oJoUpdate");
-
 storedTemplates = {};
 function getTemplate(fileName) {
   if (Object.hasOwn(storedTemplates, fileName) == false) {
@@ -12,22 +30,28 @@ function getTemplate(fileName) {
   }
   return storedTemplates[fileName].cloneNode(true);
 }
+function createProxy(data) {
+  var proxy = new Proxy(data, {
+    set(target, prop, value, receiver) {
+      const oldVal = target[prop];
+      target[prop] = value;
+      if (oldVal !== value) {
+        // Dispatch oJoUpdate with a reference to the object (or a unique key if needed)
+        document.dispatchEvent(
+          new CustomEvent("oJoUpdate", { detail: { target: receiver } })
+        );
+      }
+      return value;
+    },
+  });
+  return proxy;
+}
 class WatchedObject {
   constructor(obj) {
-    var proxy = new Proxy(obj, {
-      set(target, prop, value, receiver) {
-        const oldVal = target[prop];
-        target[prop] = value;
-        if (oldVal !== value) {
-          // Dispatch oJoUpdate with a reference to the object (or a unique key if needed)
-          document.dispatchEvent(
-            new CustomEvent("oJoUpdate", { detail: { target: receiver } })
-          );
-        }
-        return value;
-      },
-    });
-    return proxy;
+    if (Array.isArray(obj)) {
+      return obj.map((data) => createProxy(data));
+    }
+    return createProxy(obj);
   }
 }
 
@@ -158,16 +182,9 @@ function updateData(data) {
 }
 
 function handleOjoPrepare() {
-  var dataName = this.getAttribute("data-template");
-  var data;
-  let temp = this;
-  while (dataName == undefined && temp != null && temp.tagName != "HTML") {
-    dataName = temp.getAttribute("data-template");
-    temp = temp.parentNode;
-  }
-
-  if (dataName !== null) {
-    eval("data = " + dataName + ";");
+  var [dataName, data] = resolveOjoData(this);
+  this.ojoData = data;
+  if (data !== null) {
     if (Array.isArray(data)) {
       data.forEach((item) => {
         let newNode = this.cloneNode(true);
@@ -175,10 +192,10 @@ function handleOjoPrepare() {
           "data-template",
           dataName + "[" + data.indexOf(item) + "]"
         );
-        this.parentNode.appendChild(newNode);
+        this.insertAdjacentElement("beforebegin", newNode);
       });
       this.remove();
-      return; // Don't continue if replaced by clones
+      return;
     }
   }
   this.handleRenderEvent();
